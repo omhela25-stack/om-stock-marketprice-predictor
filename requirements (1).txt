@@ -4,8 +4,7 @@ numpy==1.24.3
 yfinance==0.2.21
 scikit-learn==1.3.0
 joblib==1.3.2
-plotly==5.17.0
-matplotlib==3.7.2
+matplotlib
 requests==2.27.0
 timeseries
 alpha_vantage==2.3.1
