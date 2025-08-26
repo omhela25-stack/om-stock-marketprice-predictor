@@ -2,8 +2,7 @@ from alpha_vantage.timeseries import TimeSeries
 import pandas as pd
 
 # Tumhara API key yahan daalo
-api_key = "LPRQX827JWWLKA4R
-"
+api_key = "LPRQX827JWWLKA4R"
 
 # Alpha Vantage object create karo
 ts = TimeSeries(key=api_key, output_format='pandas')
@@ -18,4 +17,5 @@ try:
 
 except Exception as e:
     print("\n❌ Error fetching data:")
+
     print(e)
