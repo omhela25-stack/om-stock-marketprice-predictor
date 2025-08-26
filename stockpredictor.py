@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
+import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import requests
 import time
@@ -1003,4 +1003,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
