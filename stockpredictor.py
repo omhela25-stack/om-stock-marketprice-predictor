@@ -19,7 +19,7 @@ AV_BASE_URL = "https://www.alphavantage.co/query"
 
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
 st.title("MY LOVE BABY SHONA EVERYTHING 💗 SWATI")
-st.image("https://ibb.co/SDKyMctb", caption="My Love Swati", use_container_width=True)
+st.image("<a href='https://postimg.cc/dhvK8DQh' target='_blank'><img src='https://i.postimg.cc/dhvK8DQh/swati-jpeg.jpg' border='0' alt='swati-jpeg'/></a>", caption="My Love Swati", use_container_width=True)
 
 
 
@@ -185,6 +185,7 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
