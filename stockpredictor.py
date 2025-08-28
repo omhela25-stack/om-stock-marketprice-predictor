@@ -124,53 +124,61 @@ if predict_btn:
     else:
         df = process_data(df)
 
-        # Current stats
-        st.subheader(f"📊 {ticker} - Latest Data")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Current Price", f"${df['Close'].iloc[-1]:.2f}")
-        col2.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}")
-        col3.metric("RSI", f"{df['RSI'].iloc[-1]:.2f}")
+        # ✅ SAFETY CHECK: ensure enough rows for indicators
+        if df.empty or len(df) < 60:
+            st.error(
+                f"Not enough data to calculate features for {ticker}. "
+                "Try selecting a longer period (6mo or 1y)."
+            )
+        else:
+            # Current stats
+            st.subheader(f"📊 {ticker} - Latest Data")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Current Price", f"${df['Close'].iloc[-1]:.2f}")
+            col2.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}")
+            col3.metric("RSI", f"{df['RSI'].iloc[-1]:.2f}")
 
-        # Train
-        with st.spinner("Training model..."):
-            model, scaler, metrics = train_model(df)
+            # Train
+            with st.spinner("Training model..."):
+                model, scaler, metrics = train_model(df)
 
-        st.subheader("🤖 Model Performance")
-        st.write(metrics)
+            st.subheader("🤖 Model Performance")
+            st.write(metrics)
 
-        # Prediction
-        pred_price = predict_next(model, scaler, df)
-        current_price = df["Close"].iloc[-1]
-        change = pred_price - current_price
-        pct = change / current_price * 100
+            # Prediction
+            pred_price = predict_next(model, scaler, df)
+            current_price = df["Close"].iloc[-1]
+            change = pred_price - current_price
+            pct = change / current_price * 100
 
-        st.subheader("🔮 Next Day Prediction")
-        st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
+            st.subheader("🔮 Next Day Prediction")
+            st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
-        # Charts
-        st.subheader("📈 Price Chart")
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
-        ax.plot(df["Date"], df["MA20"], label="MA20", linestyle="--", color="orange")
-        ax.plot(df["Date"], df["MA50"], label="MA50", linestyle=":", color="green")
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Price ($)")
-        ax.legend()
-        st.pyplot(fig)
+            # Charts
+            st.subheader("📈 Price Chart")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
+            ax.plot(df["Date"], df["MA20"], label="MA20", linestyle="--", color="orange")
+            ax.plot(df["Date"], df["MA50"], label="MA50", linestyle=":", color="green")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Price ($)")
+            ax.legend()
+            st.pyplot(fig)
 
-        st.subheader("📊 Volume Chart")
-        fig, ax = plt.subplots(figsize=(10, 3))
-        ax.bar(df["Date"], df["Volume"], color="skyblue")
-        st.pyplot(fig)
+            st.subheader("📊 Volume Chart")
+            fig, ax = plt.subplots(figsize=(10, 3))
+            ax.bar(df["Date"], df["Volume"], color="skyblue")
+            st.pyplot(fig)
 
-        st.subheader("📉 RSI Chart")
-        fig, ax = plt.subplots(figsize=(10, 3))
-        ax.plot(df["Date"], df["RSI"], color="red")
-        ax.axhline(70, linestyle="--", color="orange")
-        ax.axhline(30, linestyle="--", color="green")
-        ax.set_ylim(0, 100)
-        st.pyplot(fig)
+            st.subheader("📉 RSI Chart")
+            fig, ax = plt.subplots(figsize=(10, 3))
+            ax.plot(df["Date"], df["RSI"], color="red")
+            ax.axhline(70, linestyle="--", color="orange")
+            ax.axhline(30, linestyle="--", color="green")
+            ax.set_ylim(0, 100)
+            st.pyplot(fig)
 
-        # Data Table
-        st.subheader("📋 Recent Data")
-        st.dataframe(df.tail(20))
+            # Data Table
+            st.subheader("📋 Recent Data")
+            st.dataframe(df.tail(20))
+
