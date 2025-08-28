@@ -17,9 +17,7 @@ warnings.filterwarnings('ignore')
 ALPHA_VANTAGE_API_KEY = "LPRQX827JWWLKA4R"   # replace with your key
 AV_BASE_URL = "https://www.alphavantage.co/query"
 
-
-st.title("MY LOVE SWATI")
-
+st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
 
 # ---------------- FETCH DATA ----------------
 @st.cache_data(ttl=300)
