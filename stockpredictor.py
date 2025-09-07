@@ -1,11 +1,13 @@
 # stock_predictor_app.py
+
+# stock_predictor_app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
-import requests
-import time
+from datetime import datetime
+import yfinance as yf
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -14,42 +16,29 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ---------------- CONFIG ----------------
-ALPHA_VANTAGE_API_KEY = "LPRQX827JWWLKA4R"   # replace with your key
-AV_BASE_URL = "https://www.alphavantage.co/query"
-
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
 
 # ---------------- FETCH DATA ----------------
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period="1Y"):
-    """Fetch stock data from Alpha Vantage"""
+    """Fetch stock data from Yahoo Finance"""
     try:
-        time.sleep(1)  # avoid hitting rate limit
-        params = {
-            "function": "TIME_SERIES_DAILY",
-            "symbol": ticker,
-            "apikey": ALPHA_VANTAGE_API_KEY,
-            "outputsize": "full",
-            "datatype": "json"
+        period_map = {
+            "1M": "1mo", "3M": "3mo", "6M": "6mo",
+            "1Y": "1y", "2Y": "2y", "5Y": "5y"
         }
-        response = requests.get(AV_BASE_URL, params=params, timeout=15)
-        data = response.json()
+        yf_period = period_map.get(period, "1y")
 
-        if "Time Series (Daily)" not in data:
-            raise Exception("API returned no data")
+        df = yf.download(ticker, period=yf_period, interval="1d", progress=False)
 
-        df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
+        if df.empty:
+            raise Exception("No data returned from Yahoo Finance")
+
+        df = df.reset_index()
         df = df.rename(columns={
-            "1. open": "Open", "2. high": "High", "3. low": "Low",
-            "4. close": "Close", "5. volume": "Volume"
+            "Date": "Date", "Open": "Open", "High": "High",
+            "Low": "Low", "Close": "Close", "Volume": "Volume"
         })
-        df = df.astype(float)
-        df.index = pd.to_datetime(df.index)
-        df = df.sort_index().reset_index().rename(columns={"index": "Date"})
-
-        # filter by period
-        days = {"1M": 30, "3M": 90, "6M": 180, "1Y": 365, "2Y": 730, "5Y": 1825}[period]
-        df = df[df["Date"] >= datetime.now() - timedelta(days=days)]
         return df
     except Exception as e:
         st.error(f"Data fetch failed: {e}")
@@ -113,18 +102,18 @@ st.title("📈 Stock Price Predictor")
 # Sidebar
 st.sidebar.header("⚙️ Settings")
 
-ticker = st.sidebar.text_input("Enter stock ticker", "AAPL", key="ticker_input")
-period = st.sidebar.selectbox("Period", ["1M", "3M", "6M", "1Y", "2Y", "5Y"], index=3, key="period_select")
+ticker = st.sidebar.text_input("Enter stock ticker", "AAPL")
+period = st.sidebar.selectbox("Period", ["1M", "3M", "6M", "1Y", "2Y", "5Y"], index=3)
 
 # Moving averages
-ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1, key="ma1")
-ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5, key="ma2")
+ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1)
+ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5)
 
 # RSI thresholds
-rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70, key="rsi_upper")
-rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30, key="rsi_lower")
+rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70)
+rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30)
 
-predict_btn = st.sidebar.button("🚀 Predict", key="predict_btn")
+predict_btn = st.sidebar.button("🚀 Predict")
 
 if predict_btn:
     with st.spinner("Fetching data..."):
@@ -192,8 +181,6 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
-
-
 
 
 
