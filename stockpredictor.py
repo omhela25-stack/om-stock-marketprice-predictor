@@ -20,8 +20,6 @@ ALPHA_VANTAGE_API_KEY = "LPRQX827JWWLKA4R"   # replace with your key
 AV_BASE_URL = "https://www.alphavantage.co/query"
 
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
-st.title("MY LOVE BABY SHONA EVERYTHING 💗 SWATI")
-st.image("https://www.imghippo.com/i/VgSb7049vM.jpeg", caption="My Love Swati", use_container_width=True)
 
 
 
@@ -377,6 +375,7 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
