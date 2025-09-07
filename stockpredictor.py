@@ -2,11 +2,12 @@
 
 # stock_predictor_app.py
 
+# stock_predictor_app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
 import yfinance as yf
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
@@ -131,12 +132,19 @@ if predict_btn:
                 "Try selecting a longer period."
             )
         else:
-            # Current stats
+            # Current stats with safe handling
             st.subheader(f"📊 {ticker} - Latest Data")
             col1, col2, col3 = st.columns(3)
-            col1.metric("Current Price", f"${df['Close'].iloc[-1]:.2f}")
-            col2.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}")
-            col3.metric("RSI", f"{df['RSI'].iloc[-1]:.2f}")
+            try:
+                last_close = df["Close"].iloc[-1]
+                last_volume = df["Volume"].iloc[-1]
+                last_rsi = df["RSI"].iloc[-1]
+
+                col1.metric("Current Price", f"${last_close:.2f}")
+                col2.metric("Volume", f"{last_volume:,.0f}")
+                col3.metric("RSI", f"{last_rsi:.2f}")
+            except Exception as e:
+                st.warning(f"⚠️ Could not display latest stats: {e}")
 
             # Train
             with st.spinner("Training model..."):
@@ -181,12 +189,6 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
-
-
-
-
-
-
 
 
 
