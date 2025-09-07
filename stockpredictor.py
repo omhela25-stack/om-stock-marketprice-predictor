@@ -124,10 +124,10 @@ if predict_btn:
             )
         else:
             # Current stats with safe handling
-st.subheader(f"📊 {ticker} - Latest Data")
-col1, col2, col3 = st.columns(3)
-try:
-    last_close = df["Close"].iloc[-1]
+    st.subheader(f"📊 {ticker} - Latest Data")
+    col1, col2, col3 = st.columns(3)
+    try:
+      last_close = df["Close"].iloc[-1]
     last_volume = df["Volume"].iloc[-1]
     last_rsi = df["RSI"].iloc[-1]
 
@@ -575,6 +575,7 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
