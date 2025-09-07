@@ -18,8 +18,29 @@ ALPHA_VANTAGE_API_KEY = "LPRQX827JWWLKA4R"   # replace with your key
 AV_BASE_URL = "https://www.alphavantage.co/query"
 
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
-st.set_page_config(page_title="📈 love", layout="wide")
 
+import streamlit as st
+import matplotlib.pyplot as plt
+
+# Sidebar controls
+st.sidebar.header("⚙️ Settings")
+
+# Stock selection
+stock = st.sidebar.selectbox("Select Stock", ["AAPL", "MSFT", "GOOGL", "TSLA"])
+
+# Timeframe selection
+timeframe = st.sidebar.radio("Timeframe", ["1M", "3M", "6M", "1Y", "5Y"])
+
+# Moving averages
+ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1)
+ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5)
+
+# RSI thresholds
+rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70)
+rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30)
+
+st.title(f"📊 Stock Prediction Dashboard - {stock}")
+st.caption(f"Timeframe: {timeframe}")
 
 
 # ---------------- FETCH DATA ----------------
@@ -184,6 +205,7 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
