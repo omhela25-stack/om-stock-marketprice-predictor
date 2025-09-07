@@ -1,11 +1,11 @@
 # stock_predictor_app.py
-# stock_predictor_app.py
-# stock_predictor_app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import yfinance as yf
+from datetime import datetime, timedelta
+import requests
+import time
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -14,26 +14,42 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ---------------- CONFIG ----------------
+ALPHA_VANTAGE_API_KEY = "LPRQX827JWWLKA4R"   # replace with your key
+AV_BASE_URL = "https://www.alphavantage.co/query"
+
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
 
 # ---------------- FETCH DATA ----------------
 @st.cache_data(ttl=300)
-def fetch_stock_data(ticker, period="1y"):
-    """Fetch stock data from Yahoo Finance"""
+def fetch_stock_data(ticker, period="1Y"):
+    """Fetch stock data from Alpha Vantage"""
     try:
-        yf_period_map = {
-            "1mo": "1mo", "3mo": "3mo", "6mo": "6mo",
-            "1y": "1y", "2y": "2y", "5y": "5y"
+        time.sleep(1)  # avoid hitting rate limit
+        params = {
+            "function": "TIME_SERIES_DAILY",
+            "symbol": ticker,
+            "apikey": ALPHA_VANTAGE_API_KEY,
+            "outputsize": "full",
+            "datatype": "json"
         }
-        df = yf.download(ticker, period=yf_period_map[period], interval="1d")
-        if df.empty:
-            raise Exception("No data from Yahoo Finance")
+        response = requests.get(AV_BASE_URL, params=params, timeout=15)
+        data = response.json()
 
-        df.reset_index(inplace=True)
-        df.rename(columns={
-            "Open": "Open", "High": "High", "Low": "Low",
-            "Close": "Close", "Volume": "Volume"
-        }, inplace=True)
+        if "Time Series (Daily)" not in data:
+            raise Exception("API returned no data")
+
+        df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
+        df = df.rename(columns={
+            "1. open": "Open", "2. high": "High", "3. low": "Low",
+            "4. close": "Close", "5. volume": "Volume"
+        })
+        df = df.astype(float)
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index().reset_index().rename(columns={"index": "Date"})
+
+        # filter by period
+        days = {"1M": 30, "3M": 90, "6M": 180, "1Y": 365, "2Y": 730, "5Y": 1825}[period]
+        df = df[df["Date"] >= datetime.now() - timedelta(days=days)]
         return df
     except Exception as e:
         st.error(f"Data fetch failed: {e}")
@@ -47,26 +63,26 @@ def calculate_rsi(prices, window=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-def process_data(df):
+def process_data(df, ma1=20, ma2=50):
     """Add technical indicators + lags"""
-    df["MA20"] = df["Close"].rolling(20).mean()
-    df["MA50"] = df["Close"].rolling(50).mean()
+    df[f"MA{ma1}"] = df["Close"].rolling(ma1).mean()
+    df[f"MA{ma2}"] = df["Close"].rolling(ma2).mean()
     df["RSI"] = calculate_rsi(df["Close"])
     df["Return"] = df["Close"].pct_change()
     for lag in [1, 2, 3, 5]:
         df[f"Close_lag{lag}"] = df["Close"].shift(lag)
     return df.dropna()
 
-def prepare_features(df):
-    features = ["Open", "High", "Low", "Volume", "MA20", "MA50", "RSI", "Return",
-                "Close_lag1", "Close_lag2", "Close_lag3", "Close_lag5"]
+def prepare_features(df, ma1=20, ma2=50):
+    features = ["Open", "High", "Low", "Volume", f"MA{ma1}", f"MA{ma2}", 
+                "RSI", "Return", "Close_lag1", "Close_lag2", "Close_lag3", "Close_lag5"]
     X = df[features].fillna(0)
     y = df["Close"]
     return X, y
 
 # ---------------- MODEL ----------------
-def train_model(df):
-    X, y = prepare_features(df)
+def train_model(df, ma1=20, ma2=50):
+    X, y = prepare_features(df, ma1, ma2)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, shuffle=False
     )
@@ -86,8 +102,8 @@ def train_model(df):
     }
     return model, scaler, metrics
 
-def predict_next(model, scaler, df):
-    X, _ = prepare_features(df)
+def predict_next(model, scaler, df, ma1=20, ma2=50):
+    X, _ = prepare_features(df, ma1, ma2)
     last_row = X.iloc[-1:].values
     return model.predict(scaler.transform(last_row))[0]
 
@@ -96,10 +112,18 @@ st.title("📈 Stock Price Predictor")
 
 # Sidebar
 st.sidebar.header("⚙️ Settings")
+
 ticker = st.sidebar.text_input("Enter stock ticker", "AAPL", key="ticker_input")
-period = st.sidebar.selectbox(
-    "Period", ["1mo", "3mo", "6mo", "1y", "2y", "5y"], index=3, key="period_select"
-)
+period = st.sidebar.selectbox("Period", ["1M", "3M", "6M", "1Y", "2Y", "5Y"], index=3, key="period_select")
+
+# Moving averages
+ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1, key="ma1")
+ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5, key="ma2")
+
+# RSI thresholds
+rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70, key="rsi_upper")
+rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30, key="rsi_lower")
+
 predict_btn = st.sidebar.button("🚀 Predict", key="predict_btn")
 
 if predict_btn:
@@ -109,13 +133,13 @@ if predict_btn:
     if df.empty:
         st.error("No data available. Try another ticker or later.")
     else:
-        df = process_data(df)
+        df = process_data(df, ma1, ma2)
 
-        # ✅ SAFETY CHECK: ensure enough rows for indicators
-        if df.empty or len(df) < 60:
+        # ✅ SAFETY CHECK
+        if df.empty or len(df) < max(ma1, ma2) + 10:
             st.error(
                 f"Not enough data to calculate features for {ticker}. "
-                "Try selecting a longer period (6mo or 1y)."
+                "Try selecting a longer period."
             )
         else:
             # Current stats
@@ -127,13 +151,13 @@ if predict_btn:
 
             # Train
             with st.spinner("Training model..."):
-                model, scaler, metrics = train_model(df)
+                model, scaler, metrics = train_model(df, ma1, ma2)
 
             st.subheader("🤖 Model Performance")
             st.write(metrics)
 
             # Prediction
-            pred_price = predict_next(model, scaler, df)
+            pred_price = predict_next(model, scaler, df, ma1, ma2)
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = change / current_price * 100
@@ -145,11 +169,19 @@ if predict_btn:
             st.subheader("📈 Price Chart")
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
-            ax.plot(df["Date"], df["MA20"], label="MA20", linestyle="--", color="orange")
-            ax.plot(df["Date"], df["MA50"], label="MA50", linestyle=":", color="green")
+            ax.plot(df["Date"], df[f"MA{ma1}"], label=f"MA{ma1}", linestyle="--", color="orange")
+            ax.plot(df["Date"], df[f"MA{ma2}"], label=f"MA{ma2}", linestyle=":", color="green")
             ax.set_xlabel("Date")
             ax.set_ylabel("Price ($)")
             ax.legend()
+            st.pyplot(fig)
+
+            st.subheader("📉 RSI Chart")
+            fig, ax = plt.subplots(figsize=(10, 3))
+            ax.plot(df["Date"], df["RSI"], color="red")
+            ax.axhline(rsi_upper, linestyle="--", color="orange")
+            ax.axhline(rsi_lower, linestyle="--", color="green")
+            ax.set_ylim(0, 100)
             st.pyplot(fig)
 
             st.subheader("📊 Volume Chart")
@@ -157,17 +189,11 @@ if predict_btn:
             ax.bar(df["Date"], df["Volume"], color="skyblue")
             st.pyplot(fig)
 
-            st.subheader("📉 RSI Chart")
-            fig, ax = plt.subplots(figsize=(10, 3))
-            ax.plot(df["Date"], df["RSI"], color="red")
-            ax.axhline(70, linestyle="--", color="orange")
-            ax.axhline(30, linestyle="--", color="green")
-            ax.set_ylim(0, 100)
-            st.pyplot(fig)
-
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
+
 
 
 
