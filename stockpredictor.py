@@ -116,37 +116,36 @@ if predict_btn:
     else:
         df = process_data(df, ma1, ma2)
 
-        # ✅ SAFETY CHECK
+        # SAFETY CHECK
         if df.empty or len(df) < max(ma1, ma2) + 10:
             st.error(
                 f"Not enough data to calculate features for {ticker}. "
                 "Try selecting a longer period."
             )
         else:
-            # Current stats with safe handling
-    st.subheader(f"📊 {ticker} - Latest Data")
-    col1, col2, col3 = st.columns(3)
-    try:
-      last_close = df["Close"].iloc[-1]
-    last_volume = df["Volume"].iloc[-1]
-    last_rsi = df["RSI"].iloc[-1]
+            # Display current latest stats safely
+            st.subheader(f"📊 {ticker} - Latest Data")
+            col1, col2, col3 = st.columns(3)
+            try:
+                last_close = df["Close"].iloc[-1]
+                last_volume = df["Volume"].iloc[-1]
+                last_rsi = df["RSI"].iloc[-1]
 
-    # Convert to scalar floats using .item()
-    if isinstance(last_close, (pd.Series, np.ndarray)):
-        last_close = last_close.item()
-    if isinstance(last_volume, (pd.Series, np.ndarray)):
-        last_volume = last_volume.item()
-    if isinstance(last_rsi, (pd.Series, np.ndarray)):
-        last_rsi = last_rsi.item()
+                # Convert Series or arrays to scalars if needed
+                if isinstance(last_close, (pd.Series, np.ndarray)):
+                    last_close = last_close.item()
+                if isinstance(last_volume, (pd.Series, np.ndarray)):
+                    last_volume = last_volume.item()
+                if isinstance(last_rsi, (pd.Series, np.ndarray)):
+                    last_rsi = last_rsi.item()
 
-    col1.metric("Current Price", f"${last_close:.2f}")
-    col2.metric("Volume", f"{last_volume:,.0f}")
-    col3.metric("RSI", f"{last_rsi:.2f}")
-except Exception as e:
-    st.warning(f"⚠️ Could not display latest stats: {e}")
+                col1.metric("Current Price", f"${last_close:.2f}")
+                col2.metric("Volume", f"{last_volume:,.0f}")
+                col3.metric("RSI", f"{last_rsi:.2f}")
+            except Exception as e:
+                st.warning(f"⚠️ Could not display latest stats: {e}")
 
-
-            # Train
+            # Train model
             with st.spinner("Training model..."):
                 model, scaler, metrics = train_model(df, ma1, ma2)
 
@@ -155,22 +154,19 @@ except Exception as e:
 
             # Prediction
             pred_price = predict_next(model, scaler, df, ma1, ma2)
-
-            # Fix for formatting error - ensure scalar float
             if isinstance(pred_price, (pd.Series, np.ndarray)):
                 pred_price = pred_price[0]
 
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = (change / current_price) * 100
-
             if isinstance(pct, (pd.Series, np.ndarray)):
                 pct = pct[0]
 
             st.subheader("🔮 Next Day Prediction")
             st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
-            # Charts
+            # Price Chart
             st.subheader("📈 Price Chart")
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
@@ -181,6 +177,7 @@ except Exception as e:
             ax.legend()
             st.pyplot(fig)
 
+            # RSI Chart
             st.subheader("📉 RSI Chart")
             fig, ax = plt.subplots(figsize=(10, 3))
             ax.plot(df["Date"], df["RSI"], color="red")
@@ -189,12 +186,18 @@ except Exception as e:
             ax.set_ylim(0, 100)
             st.pyplot(fig)
 
+            # Volume Chart
             st.subheader("📊 Volume Chart")
             fig, ax = plt.subplots(figsize=(10, 3))
-            ax.bar(df["Date"], df["Volume"], color="skyblue")
+            dates = pd.to_datetime(df["Date"])
+            volumes = df["Volume"].astype(float)
+            ax.bar(dates, volumes, color="skyblue")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Volume")
+            fig.autofmt_xdate()  # Rotate date labels for readability
             st.pyplot(fig)
 
-            # Data Table
+            # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
 import streamlit as st
@@ -315,27 +318,36 @@ if predict_btn:
     else:
         df = process_data(df, ma1, ma2)
 
-        # ✅ SAFETY CHECK
+        # SAFETY CHECK
         if df.empty or len(df) < max(ma1, ma2) + 10:
             st.error(
                 f"Not enough data to calculate features for {ticker}. "
                 "Try selecting a longer period."
             )
         else:
-            # Current stats with safe handling
+            # Display current latest stats safely
             st.subheader(f"📊 {ticker} - Latest Data")
             col1, col2, col3 = st.columns(3)
             try:
                 last_close = df["Close"].iloc[-1]
                 last_volume = df["Volume"].iloc[-1]
                 last_rsi = df["RSI"].iloc[-1]
+
+                # Convert Series or arrays to scalars if needed
+                if isinstance(last_close, (pd.Series, np.ndarray)):
+                    last_close = last_close.item()
+                if isinstance(last_volume, (pd.Series, np.ndarray)):
+                    last_volume = last_volume.item()
+                if isinstance(last_rsi, (pd.Series, np.ndarray)):
+                    last_rsi = last_rsi.item()
+
                 col1.metric("Current Price", f"${last_close:.2f}")
                 col2.metric("Volume", f"{last_volume:,.0f}")
                 col3.metric("RSI", f"{last_rsi:.2f}")
             except Exception as e:
                 st.warning(f"⚠️ Could not display latest stats: {e}")
 
-            # Train
+            # Train model
             with st.spinner("Training model..."):
                 model, scaler, metrics = train_model(df, ma1, ma2)
 
@@ -344,22 +356,19 @@ if predict_btn:
 
             # Prediction
             pred_price = predict_next(model, scaler, df, ma1, ma2)
-
-            # Fix for formatting error - ensure scalar float
             if isinstance(pred_price, (pd.Series, np.ndarray)):
                 pred_price = pred_price[0]
 
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = (change / current_price) * 100
-
             if isinstance(pct, (pd.Series, np.ndarray)):
                 pct = pct[0]
 
             st.subheader("🔮 Next Day Prediction")
             st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
-            # Charts
+            # Price Chart
             st.subheader("📈 Price Chart")
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
@@ -370,6 +379,7 @@ if predict_btn:
             ax.legend()
             st.pyplot(fig)
 
+            # RSI Chart
             st.subheader("📉 RSI Chart")
             fig, ax = plt.subplots(figsize=(10, 3))
             ax.plot(df["Date"], df["RSI"], color="red")
@@ -378,12 +388,18 @@ if predict_btn:
             ax.set_ylim(0, 100)
             st.pyplot(fig)
 
+            # Volume Chart
             st.subheader("📊 Volume Chart")
             fig, ax = plt.subplots(figsize=(10, 3))
-            ax.bar(df["Date"], df["Volume"], color="skyblue")
+            dates = pd.to_datetime(df["Date"])
+            volumes = df["Volume"].astype(float)
+            ax.bar(dates, volumes, color="skyblue")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Volume")
+            fig.autofmt_xdate()  # Rotate date labels for readability
             st.pyplot(fig)
 
-            # Data Table
+            # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
 import streamlit as st
@@ -504,27 +520,36 @@ if predict_btn:
     else:
         df = process_data(df, ma1, ma2)
 
-        # ✅ SAFETY CHECK
+        # SAFETY CHECK
         if df.empty or len(df) < max(ma1, ma2) + 10:
             st.error(
                 f"Not enough data to calculate features for {ticker}. "
                 "Try selecting a longer period."
             )
         else:
-            # Current stats with safe handling
+            # Display current latest stats safely
             st.subheader(f"📊 {ticker} - Latest Data")
             col1, col2, col3 = st.columns(3)
             try:
                 last_close = df["Close"].iloc[-1]
                 last_volume = df["Volume"].iloc[-1]
                 last_rsi = df["RSI"].iloc[-1]
+
+                # Convert Series or arrays to scalars if needed
+                if isinstance(last_close, (pd.Series, np.ndarray)):
+                    last_close = last_close.item()
+                if isinstance(last_volume, (pd.Series, np.ndarray)):
+                    last_volume = last_volume.item()
+                if isinstance(last_rsi, (pd.Series, np.ndarray)):
+                    last_rsi = last_rsi.item()
+
                 col1.metric("Current Price", f"${last_close:.2f}")
                 col2.metric("Volume", f"{last_volume:,.0f}")
                 col3.metric("RSI", f"{last_rsi:.2f}")
             except Exception as e:
                 st.warning(f"⚠️ Could not display latest stats: {e}")
 
-            # Train
+            # Train model
             with st.spinner("Training model..."):
                 model, scaler, metrics = train_model(df, ma1, ma2)
 
@@ -533,22 +558,19 @@ if predict_btn:
 
             # Prediction
             pred_price = predict_next(model, scaler, df, ma1, ma2)
-
-            # Fix for formatting error - ensure scalar float
             if isinstance(pred_price, (pd.Series, np.ndarray)):
                 pred_price = pred_price[0]
 
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = (change / current_price) * 100
-
             if isinstance(pct, (pd.Series, np.ndarray)):
                 pct = pct[0]
 
             st.subheader("🔮 Next Day Prediction")
             st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
-            # Charts
+            # Price Chart
             st.subheader("📈 Price Chart")
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
@@ -559,6 +581,7 @@ if predict_btn:
             ax.legend()
             st.pyplot(fig)
 
+            # RSI Chart
             st.subheader("📉 RSI Chart")
             fig, ax = plt.subplots(figsize=(10, 3))
             ax.plot(df["Date"], df["RSI"], color="red")
@@ -567,25 +590,20 @@ if predict_btn:
             ax.set_ylim(0, 100)
             st.pyplot(fig)
 
+            # Volume Chart
             st.subheader("📊 Volume Chart")
             fig, ax = plt.subplots(figsize=(10, 3))
-            ax.bar(df["Date"], df["Volume"], color="skyblue")
+            dates = pd.to_datetime(df["Date"])
+            volumes = df["Volume"].astype(float)
+            ax.bar(dates, volumes, color="skyblue")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Volume")
+            fig.autofmt_xdate()  # Rotate date labels for readability
             st.pyplot(fig)
 
-            # Data Table
+            # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
-
-
-
-
-
-
-
-
-
-
-
 
 
 
