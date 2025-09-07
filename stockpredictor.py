@@ -124,17 +124,27 @@ if predict_btn:
             )
         else:
             # Current stats with safe handling
-            st.subheader(f"📊 {ticker} - Latest Data")
-            col1, col2, col3 = st.columns(3)
-            try:
-                last_close = df["Close"].iloc[-1]
-                last_volume = df["Volume"].iloc[-1]
-                last_rsi = df["RSI"].iloc[-1]
-                col1.metric("Current Price", f"${last_close:.2f}")
-                col2.metric("Volume", f"{last_volume:,.0f}")
-                col3.metric("RSI", f"{last_rsi:.2f}")
-            except Exception as e:
-                st.warning(f"⚠️ Could not display latest stats: {e}")
+st.subheader(f"📊 {ticker} - Latest Data")
+col1, col2, col3 = st.columns(3)
+try:
+    last_close = df["Close"].iloc[-1]
+    last_volume = df["Volume"].iloc[-1]
+    last_rsi = df["RSI"].iloc[-1]
+
+    # Convert to scalar floats using .item()
+    if isinstance(last_close, (pd.Series, np.ndarray)):
+        last_close = last_close.item()
+    if isinstance(last_volume, (pd.Series, np.ndarray)):
+        last_volume = last_volume.item()
+    if isinstance(last_rsi, (pd.Series, np.ndarray)):
+        last_rsi = last_rsi.item()
+
+    col1.metric("Current Price", f"${last_close:.2f}")
+    col2.metric("Volume", f"{last_volume:,.0f}")
+    col3.metric("RSI", f"{last_rsi:.2f}")
+except Exception as e:
+    st.warning(f"⚠️ Could not display latest stats: {e}")
+
 
             # Train
             with st.spinner("Training model..."):
@@ -565,6 +575,7 @@ if predict_btn:
             # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
