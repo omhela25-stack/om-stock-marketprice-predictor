@@ -194,16 +194,16 @@ if predict_btn:
             try:
                 st.subheader("📊 Volume Chart")
                 fig, ax = plt.subplots(figsize=(10, 3))
-
                 # Ensure clean types
-                dates = pd.to_datetime(df["Date"]).to_numpy()
-                volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float).to_numpy()
+                 dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
+                 volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float).tolist()
 
-                ax.bar(dates, volumes, color="skyblue", width=1.0)
-                ax.set_xlabel("Date")
-                ax.set_ylabel("Volume")
-                fig.autofmt_xdate()
-                st.pyplot(fig)
+                 ax.bar(dates, volumes, color="skyblue", width=1.0)
+                 ax.set_xlabel("Date")
+                 ax.set_ylabel("Volume")
+                 fig.autofmt_xdate()
+                 st.pyplot(fig)()
+                 st.pyplot(fig)
             except Exception as e:
                 st.warning(f"⚠️ Could not render Volume chart: {e}")
 
@@ -625,6 +625,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
