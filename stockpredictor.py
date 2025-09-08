@@ -190,32 +190,34 @@ if predict_btn:
             ax.set_ylim(0, 100)
             st.pyplot(fig)
 
-            # Volume Chart
+       # ---------------- VOLUME CHART ----------------
             try:
                 st.subheader("📊 Volume Chart")
                 fig, ax = plt.subplots(figsize=(10, 3))
-                # Ensure clean types
-                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime()
-
-                dates = np.array(dates).ravel().tolist()   # guaranteed 1D list
-
-                volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float)
-                volumes = np.array(volumes).ravel().tolist()   # guaranteed 1D list
-
-
-                ax.bar(dates, volumes, color="skyblue", width=0.8)
+            
+                # Convert dates and volumes to pure Python lists
+                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
+                volumes = df["Volume"].astype(float).tolist()
+            
+                # Debug fallback check
+                if not isinstance(dates, list) or not isinstance(volumes, list):
+                    raise ValueError("Dates or Volumes is not a list")
+            
+                ax.bar(dates, volumes, color="skyblue")
                 ax.set_xlabel("Date")
-
                 ax.set_ylabel("Volume")
                 fig.autofmt_xdate()
-                st.pyplot(fig)()
+            
                 st.pyplot(fig)
+            
             except Exception as e:
                 st.warning(f"⚠️ Could not render Volume chart: {e}")
+            
 
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
