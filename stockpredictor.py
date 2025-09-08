@@ -289,7 +289,26 @@ def predict_next(model, scaler, df, ma1=20, ma2=50):
     pred = model.predict(scaler.transform(last_row))
     if isinstance(pred, (pd.Series, np.ndarray)):
         return pred[0]
-    return pred
+    return pred 
+    
+    # Volume Chart
+st.subheader("📊 Volume Chart")
+fig, ax = plt.subplots(figsize=(10, 3))
+
+try:
+    # Ensure dates are datetime and volumes are numeric
+    dates = pd.to_datetime(df["Date"])
+    volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float)
+
+    ax.bar(dates, volumes, color="skyblue")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Volume")
+    fig.autofmt_xdate()  # Rotate date labels
+    st.pyplot(fig)
+
+except Exception as e:
+    st.warning(f"⚠️ Could not render Volume chart: {e}")
+
 
 # ---------------- STREAMLIT UI ----------------
 st.title("📈 Stock Price Predictor")
@@ -604,6 +623,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
