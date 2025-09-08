@@ -191,17 +191,18 @@ if predict_btn:
             st.pyplot(fig)
 
        # ---------------- VOLUME CHART ----------------
+         # ---------------- VOLUME CHART ----------------
             try:
                 st.subheader("📊 Volume Chart")
                 fig, ax = plt.subplots(figsize=(10, 3))
             
-                # Convert dates and volumes to pure Python lists
+                # Ensure "Date" and "Volume" are Series, then convert to lists
                 dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
-                volumes = df["Volume"].astype(float).tolist()
+                volumes = df["Volume"].squeeze().astype(float).tolist()  # squeeze fixes DataFrame->Series
             
-                # Debug fallback check
-                if not isinstance(dates, list) or not isinstance(volumes, list):
-                    raise ValueError("Dates or Volumes is not a list")
+                # Extra safety: lengths must match
+                if len(dates) != len(volumes):
+                    raise ValueError(f"Length mismatch: {len(dates)} dates vs {len(volumes)} volumes")
             
                 ax.bar(dates, volumes, color="skyblue")
                 ax.set_xlabel("Date")
@@ -212,11 +213,13 @@ if predict_btn:
             
             except Exception as e:
                 st.warning(f"⚠️ Could not render Volume chart: {e}")
+
             
 
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
