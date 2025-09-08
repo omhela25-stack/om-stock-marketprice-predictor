@@ -195,11 +195,17 @@ if predict_btn:
                 st.subheader("📊 Volume Chart")
                 fig, ax = plt.subplots(figsize=(10, 3))
                 # Ensure clean types
-                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
-                volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float).tolist()
+                    dates = pd.to_datetime(df["Date"]).dt.to_pydatetime()
 
-                ax.bar(dates, volumes, color="skyblue", width=1.0)
+                    dates = np.array(dates).ravel().tolist()   # guaranteed 1D list
+
+                    volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float)
+                    volumes = np.array(volumes).ravel().tolist()   # guaranteed 1D list
+
+
+                ax.bar(dates, volumes, color="skyblue", width=0.8)
                 ax.set_xlabel("Date")
+
                 ax.set_ylabel("Volume")
                 fig.autofmt_xdate()
                 st.pyplot(fig)()
