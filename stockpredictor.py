@@ -195,8 +195,8 @@ if predict_btn:
                 st.subheader("📊 Volume Chart")
                 fig, ax = plt.subplots(figsize=(10, 3))
                 # Ensure clean types
-                 dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
-                 volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float).tolist()
+                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
+                volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float).tolist()
 
                  ax.bar(dates, volumes, color="skyblue", width=1.0)
                  ax.set_xlabel("Date")
@@ -625,6 +625,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
