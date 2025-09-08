@@ -165,42 +165,7 @@ if predict_btn:
 
             st.subheader("🔮 Next Day Prediction")
             st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
-            # Price Chart
-            st.subheader("📈 Price Chart")
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
-            ax.plot(df["Date"], df[f"MA{ma1}"], label=f"MA{ma1}", linestyle="--", color="orange")
-            ax.plot(df["Date"], df[f"MA{ma2}"], label=f"MA{ma2}", linestyle=":", color="green")
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Price ($)")
-            ax.legend()
-            st.pyplot(fig)
-
-            # RSI Chart
-            st.subheader("📉 RSI Chart")
-            fig, ax = plt.subplots(figsize=(10, 3))
-            ax.plot(df["Date"], df["RSI"], color="red")
-            ax.axhline(rsi_upper, linestyle="--", color="orange")
-            ax.axhline(rsi_lower, linestyle="--", color="green")
-            ax.set_ylim(0, 100)
-            st.pyplot(fig)
-
-            # Volume Chart
-            try:
-                st.subheader("📊 Volume Chart")
-                fig, ax = plt.subplots(figsize=(10, 3))
-
-                # Ensure clean types
-                dates = pd.to_datetime(df["Date"]).to_numpy()
-                volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float).to_numpy()
-
-                ax.bar(dates, volumes, color="skyblue", width=1.0)
-                ax.set_xlabel("Date")
-                ax.set_ylabel("Volume")
-                fig.autofmt_xdate()
-                st.pyplot(fig)
-            except Exception as e:
-                st.warning(f"⚠️ Could not render Volume chart: {e}")
+            
 
             # Recent Data Table
             st.subheader("📋 Recent Data")
@@ -660,6 +625,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
