@@ -13,6 +13,51 @@ warnings.filterwarnings('ignore')
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
+def local_css(css_text: str):
+    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
+
+custom_css = """
+/* App background */
+.main {
+    background-color: #0E1117;
+    color: #FAFAFA;
+    font-family: 'Trebuchet MS', sans-serif;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: #1E1E2F;
+    color: white;
+}
+
+/* Titles */
+h1, h2, h3 {
+    color: #FF4B4B !important;
+    font-weight: bold;
+}
+
+/* Metric cards */
+[data-testid="stMetricValue"] {
+    color: #39FF14 !important; /* Neon green */
+    font-size: 28px;
+}
+[data-testid="stMetricDelta"] {
+    color: #FFD700 !important; /* Gold for change */
+    font-size: 18px;
+}
+
+/* Buttons */
+.stButton>button {
+    background: linear-gradient(90deg, #FF4B4B, #FF9900);
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+}
+"""
+plt.style.use("seaborn-v0_8-darkgrid")
+
+# Apply CSS
+local_css(custom_css)
 
 # ---------------- FETCH DATA ----------------
 @st.cache_data(ttl=300)
@@ -219,6 +264,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
