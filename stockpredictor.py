@@ -205,8 +205,8 @@ except Exception as e:
 
 
             # Recent Data Table
-            st.subheader("📋 Recent Data")
-            st.dataframe(df.tail(20))
+     st.subheader("📋 Recent Data")
+     st.dataframe(df.tail(20))
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -621,6 +621,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
