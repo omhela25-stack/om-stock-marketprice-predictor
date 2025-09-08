@@ -609,20 +609,12 @@ if predict_btn:
             ax.set_ylim(0, 100)
             st.pyplot(fig)
 
-            # Volume Chart
-            st.subheader("📊 Volume Chart")
-            fig, ax = plt.subplots(figsize=(10, 3))
-            dates = pd.to_datetime(df["Date"])
-            volumes = df["Volume"].astype(float)
-            ax.bar(dates, volumes, color="skyblue")
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Volume")
-            fig.autofmt_xdate()  # Rotate date labels for readability
-            st.pyplot(fig)
+        
 
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
