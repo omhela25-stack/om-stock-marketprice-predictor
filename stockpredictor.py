@@ -195,12 +195,12 @@ if predict_btn:
                 st.subheader("📊 Volume Chart")
                 fig, ax = plt.subplots(figsize=(10, 3))
                 # Ensure clean types
-                    dates = pd.to_datetime(df["Date"]).dt.to_pydatetime()
+                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime()
 
-                    dates = np.array(dates).ravel().tolist()   # guaranteed 1D list
+                dates = np.array(dates).ravel().tolist()   # guaranteed 1D list
 
-                    volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float)
-                    volumes = np.array(volumes).ravel().tolist()   # guaranteed 1D list
+                volumes = pd.to_numeric(df["Volume"], errors="coerce").fillna(0).astype(float)
+                volumes = np.array(volumes).ravel().tolist()   # guaranteed 1D list
 
 
                 ax.bar(dates, volumes, color="skyblue", width=0.8)
@@ -216,6 +216,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
