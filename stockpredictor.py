@@ -44,29 +44,54 @@ h1, h2, h3 {
     font-weight: bold;
 }
 """
+import streamlit as st
 from datetime import datetime
 import pytz
 
 ist = pytz.timezone('Asia/Kolkata')
 now_ist = datetime.now(ist)
 
-st.markdown(
-    f"""
-    <h4 style="
-        font-family: 'Trebuchet MS', sans-serif;
-        color: #FFD700;
-        margin-top: 0.1rem;
-        margin-bottom: 0.5rem;
+header_html = f"""
+<div style="
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Trebuchet MS', sans-serif;
+    margin-bottom: 1rem;
+">
+    <div style="
+        color: #00FFFF;
+        font-weight: bold;
+        font-size: 2.5rem;  /* ~ h1 size */
+        font-family: 'Roboto', 'Trebuchet MS', sans-serif;
+    ">
+        📈 Stock Price Predictor
+    </div>
+    <div style="
+        color: #FF1493;
+        font-size: 1.5rem; /* subtitle size */
         font-weight: normal;
-        line-height: 1.2;
-        font-style: italic;
+        margin-right: auto;
+        margin-left: 2rem;
+        flex-grow: 1;
         text-align: center;
     ">
+        Global + Custom Stocks Analysis
+    </div>
+    <div style="
+        color: #FFD700;
+        font-style: italic;
+        font-size: 1.2rem;
+        text-align: right;
+        min-width: 140px;
+    ">
         {now_ist.strftime('%b %d, %Y %H:%M')}
-    </h4>
-    """,
-    unsafe_allow_html=True,
-)
+    </div>
+</div>
+"""
+
+st.markdown(header_html, unsafe_allow_html=True)
+
 
 def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
@@ -417,6 +442,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
