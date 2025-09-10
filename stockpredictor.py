@@ -29,25 +29,6 @@ border-radius: 8px;font-weight: bold;}
 plt.style.use("seaborn-v0_8-darkgrid")
 local_css(custom_css)
 
-import streamlit as st
-import yfinance as yf
-import time
-import pandas as pd
-
-# Function to fetch live prices for a list of tickers
-@st.cache_data(ttl=60)  # Cache for 1 minute
-def get_latest_prices(tickers):
-    prices = {}
-    for ticker in tickers:
-        try:
-            data = yf.Ticker(ticker).history(period="1d")
-            if not data.empty:
-                prices[ticker] = data["Close"].iloc[-1]
-            else:
-                prices[ticker] = None
-        except Exception:
-            prices[ticker] = None
-    return prices
 
 # Your tickers list (can replace with dynamic from your app)
 tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "RELIANCE.NS", "TCS.NS"]
@@ -420,6 +401,7 @@ st.markdown(
 )
 
             
+
 
 
 
