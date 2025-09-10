@@ -261,6 +261,28 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+            
+            # Add footer at the bottom
+            st.markdown(
+                """
+                <style>
+                .footer {
+                    position: fixed;
+                    bottom: 0;
+                    width: 100%;
+                    text-align: center;
+                    color: gray;
+                    padding: 10px;
+                    font-size: 14px;
+                }
+                </style>
+                <div class="footer">
+                    Made by <b>Om Hela</b>, Student (Minor in AI, IIT Ropar)
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
 
 
 
