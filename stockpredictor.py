@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import yfinance as yf
+import time
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -11,58 +12,71 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# ---------------- CONFIG ----------------
+# -------------- CONFIG & STYLE --------------
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
 def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
-
 custom_css = """
 /* App background */
-.main {
-    background-color: #0E1117;
-    color: #FAFAFA;
-    font-family: 'Trebuchet MS', sans-serif;
-}
-
-/* Sidebar styling */
-[data-testid="stSidebar"] {
-    background-color: #1E1E2F;
-    color: white;
-}
-
-/* Titles */
-h1, h2, h3 {
-    color: #FF4B4B !important;
-    font-weight: bold;
-}
-
-/* Metric cards */
-[data-testid="stMetricValue"] {
-    color: #39FF14 !important; /* Neon green */
-    font-size: 28px;
-}
-[data-testid="stMetricDelta"] {
-    color: #FFD700 !important; /* Gold for change */
-    font-size: 18px;
-}
-
-/* Buttons */
-.stButton>button {
-    background: linear-gradient(90deg, #FF4B4B, #FF9900);
-    color: white;
-    border-radius: 8px;
-    font-weight: bold;
-}
+.main {background-color: #0E1117; color: #FAFAFA;font-family: 'Trebuchet MS', sans-serif;}
+[data-testid="stSidebar"] {background-color: #1E1E2F; color: white;}
+h1, h2, h3 {color: #FF4B4B !important; font-weight: bold;}
+[data-testid="stMetricValue"] {color: #39FF14 !important;font-size: 28px;}
+[data-testid="stMetricDelta"] {color: #FFD700 !important;font-size: 18px;}
+.stButton>button {background: linear-gradient(90deg, #FF4B4B, #FF9900); color: white;
+border-radius: 8px;font-weight: bold;}
 """
 plt.style.use("seaborn-v0_8-darkgrid")
-
-# Apply CSS
 local_css(custom_css)
 
-# ---------------- FETCH DATA ----------------
+# -------------- TICKER + COMPANY NAME LOGIC ---------------
+@st.cache_data(show_spinner=True, ttl=6*3600)
+def load_full_tickers(include_global=True, top_n=500):
+    tickers = []
+    names = []
+    try:
+        st.info("⏳ Fetching S&P500 / NASDAQ tickers & company names (first run can take ~20 sec)...")
+        sp500 = yf.tickers_sp500()
+        nasdaq = yf.tickers_nasdaq()
+        base = list(set(sp500 + nasdaq))[:top_n]
+        data = []
+        for t in base:
+            try:
+                info = yf.Ticker(t).info
+                name = info.get('shortName') or info.get('longName') or t
+                data.append({"Symbol": t, "Name": name})
+            except Exception:
+                data.append({"Symbol": t, "Name": t})
+            time.sleep(0.04)  # be nice to Yahoo! slow is safer
+        tickers_df = pd.DataFrame(data)
+        tickers = tickers_df["Symbol"].fillna("").tolist()
+        names = tickers_df["Name"].fillna("").tolist()
+    except Exception:
+        # Fallback: just a few popular tickers
+        tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "NFLX", "RELIANCE.NS", "TCS.NS"]
+        names = ["Apple", "Microsoft", "Tesla", "Google", "Amazon", 
+                 "Netflix", "Reliance Industries", "Tata Consultancy"]
+    if include_global:
+        extra = [
+            ("RELIANCE.NS", "Reliance Industries"),
+            ("TCS.NS", "Tata Consultancy"),
+            ("INFY.NS", "Infosys"),
+            ("HSBA.L", "HSBC Holdings"),
+            ("BMW.DE", "BMW AG"),
+            ("DAI.DE", "Mercedes-Benz"),
+        ]
+        for symbol, name in extra:
+            if symbol not in tickers:
+                tickers.append(symbol)
+                names.append(name)
+    return tickers, names
+
+def format_options(tickers, names):
+    return {f"{sym} - {nam}": sym for sym, nam in zip(tickers, names)}
+
+# -------------- FETCH DATA -----------------
 @st.cache_data(ttl=300)
 def fetch_stock_data(ticker, period="1Y"):
-    """Fetch stock data from Yahoo Finance"""
     try:
         period_map = {
             "1M": "1mo", "3M": "3mo", "6M": "6mo",
@@ -73,16 +87,15 @@ def fetch_stock_data(ticker, period="1Y"):
         if df.empty:
             raise Exception("No data returned from Yahoo Finance")
         df = df.reset_index()
-        df = df.rename(columns={
+        return df.rename(columns={
             "Date": "Date", "Open": "Open", "High": "High",
             "Low": "Low", "Close": "Close", "Volume": "Volume"
         })
-        return df
     except Exception as e:
         st.error(f"Data fetch failed: {e}")
         return pd.DataFrame()
 
-# ---------------- FEATURES ----------------
+# ------------- FEATURE ENGINEERING ----------
 def calculate_rsi(prices, window=14):
     delta = prices.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
@@ -91,7 +104,6 @@ def calculate_rsi(prices, window=14):
     return 100 - (100 / (1 + rs))
 
 def process_data(df, ma1=20, ma2=50):
-    """Add technical indicators + lags"""
     df[f"MA{ma1}"] = df["Close"].rolling(ma1).mean()
     df[f"MA{ma2}"] = df["Close"].rolling(ma2).mean()
     df["RSI"] = calculate_rsi(df["Close"])
@@ -101,13 +113,13 @@ def process_data(df, ma1=20, ma2=50):
     return df.dropna()
 
 def prepare_features(df, ma1=20, ma2=50):
-    features = ["Open", "High", "Low", "Volume", f"MA{ma1}", f"MA{ma2}", 
+    features = ["Open", "High", "Low", "Volume", f"MA{ma1}", f"MA{ma2}",
                 "RSI", "Return", "Close_lag1", "Close_lag2", "Close_lag3", "Close_lag5"]
     X = df[features].fillna(0)
     y = df["Close"]
     return X, y
 
-# ---------------- MODEL ----------------
+# -------------- MODEL ------------------
 def train_model(df, ma1=20, ma2=50):
     X, y = prepare_features(df, ma1, ma2)
     X_train, X_test, y_train, y_test = train_test_split(
@@ -134,146 +146,52 @@ def predict_next(model, scaler, df, ma1=20, ma2=50):
         return pred[0]
     return pred
 
-            # ---------------- STREAMLIT UI ----------------
-            st.title("📈 Stock Price Predictor (Choose a Ticker)")
-            
-            # Sidebar
-            st.sidebar.header("⚙️ Settings")
-            tickers_list = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "NFLX", "NVDA"]  # Predefined list
-            selected_ticker = st.sidebar.radio("Select a stock ticker", tickers_list)
-            
-            period = st.sidebar.selectbox("Period", ["1M", "3M", "6M", "1Y", "2Y", "5Y"], index=3)
-            
-            # Moving averages
-            ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1)
-            ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5)
-            
-            # RSI thresholds
-            rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70)
-            rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30)
-            
-            predict_btn = st.sidebar.button("🚀 Predict")
-            
-            if predict_btn:
-                ticker = selected_ticker
-                st.markdown(f"## 📊 Results for **{ticker}**")
-            
-                with st.spinner(f"Fetching data for {ticker}..."):
-                    df = fetch_stock_data(ticker, period)
-            
-                if df.empty:
-                    st.error(f"No data available for {ticker}.")
-                else:
-                    df = process_data(df, ma1, ma2)
-            
-                    if df.empty or len(df) < max(ma1, ma2) + 10:
-                        st.error(f"Not enough data to calculate features for {ticker}.")
-                    else:
-                        # Display current stats
-                        col1, col2, col3 = st.columns(3)
-                        try:
-                            last_close = df["Close"].iloc[-1]
-                            last_volume = df["Volume"].iloc[-1]
-                            last_rsi = df["RSI"].iloc[-1]
-            
-                            col1.metric("Current Price", f"${last_close:.2f}")
-                            col2.metric("Volume", f"{last_volume:,.0f}")
-                            col3.metric("RSI", f"{last_rsi:.2f}")
-                        except Exception as e:
-                            st.warning(f"⚠️ Could not display latest stats: {e}")
-            
-                        # Train model
-                        with st.spinner(f"Training model for {ticker}..."):
-                            model, scaler, metrics = train_model(df, ma1, ma2)
-            
-                        st.write("🤖 **Model Performance**", metrics)
-            
-                        # Prediction
-                        pred_price = predict_next(model, scaler, df, ma1, ma2)
-                        current_price = df["Close"].iloc[-1]
-                        change = pred_price - current_price
-                        pct = (change / current_price) * 100
-            
-                        st.metric("🔮 Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
-            
-                        # Charts
-                        st.subheader("📈 Price Chart")
-                        fig, ax = plt.subplots(figsize=(10, 5))
-                        ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
-                        ax.plot(df["Date"], df[f"MA{ma1}"], label=f"MA{ma1}", linestyle="--", color="orange")
-                        ax.plot(df["Date"], df[f"MA{ma2}"], label=f"MA{ma2}", linestyle=":", color="green")
-                        ax.set_xlabel("Date")
-                        ax.set_ylabel("Price ($)")
-                        ax.legend()
-                        st.pyplot(fig)
-            
-                        st.subheader("📉 RSI Chart")
-                        fig, ax = plt.subplots(figsize=(10, 3))
-                        ax.plot(df["Date"], df["RSI"], color="red")
-                        ax.axhline(rsi_upper, linestyle="--", color="orange")
-                        ax.axhline(rsi_lower, linestyle="--", color="green")
-                        ax.set_ylim(0, 100)
-                        st.pyplot(fig)
-            
-                        st.subheader("📊 Volume Chart")
-                        try:
-                            fig, ax = plt.subplots(figsize=(10, 3))
-                            dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
-                            volumes = df["Volume"].squeeze().astype(float).tolist()
-                            ax.bar(dates, volumes, color="skyblue")
-                            ax.set_xlabel("Date")
-                            ax.set_ylabel("Volume")
-                            fig.autofmt_xdate()
-                            st.pyplot(fig)
-                        except Exception as e:
-                            st.warning(f"⚠️ Could not render Volume chart: {e}")
-            
-                        st.subheader("📋 Recent Data")
-                        st.dataframe(df.tail(20))
-            
-            # Footer
-            st.markdown(
-                """
-                <div style="text-align: center; color: gray; padding: 10px; font-size: 14px;">
-                    Made by <b>Om Hela</b>, Student (Minor in AI, IIT Ropar)
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+# ---------------- STREAMLIT UI ----------------
+st.title("📈 Stock Price Predictor (Global + Custom)")
 
-# RSI thresholds
+st.sidebar.header("⚙️ Settings")
+
+tickers, names = load_full_tickers()
+ticker_mode = st.sidebar.radio(
+    "Ticker input mode:",
+    ("🔍 Search by name", "🔤 Enter custom")
+)
+
+if ticker_mode == "🔍 Search by name":
+    options = format_options(tickers, names)
+    ticker_display = st.sidebar.selectbox("Search or pick stock", list(options.keys()))
+    ticker = options[ticker_display]
+else:
+    ticker = st.sidebar.text_input("Enter custom stock ticker (e.g., RELIANCE.NS)", "AAPL")
+
+period = st.sidebar.selectbox("Period", ["1M", "3M", "6M", "1Y", "2Y", "5Y"], index=3)
+ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1)
+ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5)
 rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70)
 rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30)
-
 predict_btn = st.sidebar.button("🚀 Predict")
 
 if predict_btn:
-    tabs = st.tabs([f"📊 {ticker}" for ticker in tickers])  # one tab per ticker
-    
-    for idx, ticker in enumerate(tickers):
-        with tabs[idx]:
-            st.markdown(f"## 📊 Results for **{ticker}**")
-            with st.spinner(f"Fetching data for {ticker}..."):
-                df = fetch_stock_data(ticker, period)
-
-            if df.empty:
-                st.error(f"No data available for {ticker}.")
-                continue
-
-            df = process_data(df, ma1, ma2)
-
-            # SAFETY CHECK
-            if df.empty or len(df) < max(ma1, ma2) + 10:
-                st.error(f"Not enough data to calculate features for {ticker}.")
-                continue
-
+    st.markdown(f"## 📊 Results for **{ticker}**")
+    with st.spinner(f"Fetching data for {ticker}..."):
+        df = fetch_stock_data(ticker, period)
+    if df.empty:
+        st.error(f"No data available for {ticker}.")
+    else:
+        df = process_data(df, ma1, ma2)
+        if df.empty or len(df) < max(ma1, ma2) + 10:
+            st.error(f"Not enough data to calculate features for {ticker}.")
+        else:
             # Display current stats
             col1, col2, col3 = st.columns(3)
             try:
                 last_close = df["Close"].iloc[-1]
                 last_volume = df["Volume"].iloc[-1]
                 last_rsi = df["RSI"].iloc[-1]
-
+                # Scalar conversion if needed
+                if isinstance(last_close, (pd.Series, np.ndarray)): last_close = float(last_close.item())
+                if isinstance(last_volume, (pd.Series, np.ndarray)): last_volume = float(last_volume.item())
+                if isinstance(last_rsi, (pd.Series, np.ndarray)): last_rsi = float(last_rsi.item())
                 col1.metric("Current Price", f"${last_close:.2f}")
                 col2.metric("Volume", f"{last_volume:,.0f}")
                 col3.metric("RSI", f"{last_rsi:.2f}")
@@ -283,15 +201,14 @@ if predict_btn:
             # Train model
             with st.spinner(f"Training model for {ticker}..."):
                 model, scaler, metrics = train_model(df, ma1, ma2)
-
-            st.write("🤖 **Model Performance**", metrics)
+            st.subheader("🤖 Model Performance")
+            st.write(metrics)
 
             # Prediction
             pred_price = predict_next(model, scaler, df, ma1, ma2)
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = (change / current_price) * 100
-
             st.metric("🔮 Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
             # Charts
@@ -318,6 +235,8 @@ if predict_btn:
                 fig, ax = plt.subplots(figsize=(10, 3))
                 dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
                 volumes = df["Volume"].squeeze().astype(float).tolist()
+                if len(dates) != len(volumes):
+                    raise ValueError(f"Length mismatch: {len(dates)} dates vs {len(volumes)} volumes")
                 ax.bar(dates, volumes, color="skyblue")
                 ax.set_xlabel("Date")
                 ax.set_ylabel("Volume")
@@ -326,7 +245,6 @@ if predict_btn:
             except Exception as e:
                 st.warning(f"⚠️ Could not render Volume chart: {e}")
 
-            # Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
 
@@ -340,59 +258,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-
-
-         # ---------------- VOLUME CHART ----------------
-            try:
-                st.subheader("📊 Volume Chart")
-                fig, ax = plt.subplots(figsize=(10, 3))
-            
-                # Ensure "Date" and "Volume" are Series, then convert to lists
-                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
-                volumes = df["Volume"].squeeze().astype(float).tolist()  # squeeze fixes DataFrame->Series
-            
-                # Extra safety: lengths must match
-                if len(dates) != len(volumes):
-                    raise ValueError(f"Length mismatch: {len(dates)} dates vs {len(volumes)} volumes")
-            
-                ax.bar(dates, volumes, color="skyblue")
-                ax.set_xlabel("Date")
-                ax.set_ylabel("Volume")
-                fig.autofmt_xdate()
-            
-                st.pyplot(fig)
-            
-            except Exception as e:
-                st.warning(f"⚠️ Could not render Volume chart: {e}")
-
             
 
-            # Recent Data Table
-            st.subheader("📋 Recent Data")
-            st.dataframe(df.tail(20))
-            
-            # Add footer at the bottom
-            st.markdown(
-                """
-                <style>
-                .footer {
-                    position: fixed;
-                    bottom: 0;
-                    width: 100%;
-                    text-align: center;
-                    color: gray;
-                    padding: 10px;
-                    font-size: 14px;
-                }
-                </style>
-                <div class="footer">
-                    Made by <b>Om Hela</b>, Student (Minor in AI, IIT Ropar)
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
 
 
 
