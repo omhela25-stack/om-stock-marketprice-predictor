@@ -18,7 +18,7 @@ def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
 custom_css = """
 /* App background */
-.main {background-color: #FF69B4 ; color: #FAFAFA;font-family: 'Trebuchet MS', sans-serif;}
+.main {background-color: #FF1493 ; color: #FAFAFA;font-family: 'Trebuchet MS', sans-serif;}
 [data-testid="stSidebar"] {background-color: #1E1E2F; color: white;}
 h1, h2, h3 {color: #FF4B4B !important; font-weight: bold;}
 [data-testid="stMetricValue"] {color: #39FF14 !important;font-size: 28px;}
@@ -325,6 +325,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
