@@ -13,9 +13,9 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # -------------- CONFIG & STYLE --------------
-st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
-def local_css(css_text: str):
-    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
+import streamlit as st
+
+custom_css = """
 /* App background */
 .main {
     background-color: #E0115F;
@@ -50,9 +50,64 @@ h1, h2, h3 {
     border-radius: 8px;
     font-weight: bold;
 }
+"""
 
-plt.style.use("seaborn-v0_8-darkgrid")
+def local_css(css_text: str):
+    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
+
+# Apply the CSS styles
 local_css(custom_css)
+
+# Example Streamlit title (this will be styled by the CSS)
+st.title("📈 Stock Price Predictor")
+import streamlit as st
+
+custom_css = """
+/* App background */
+.main {
+    background-color: #E0115F;
+    color: #FF1493;
+    font-family: 'Roboto', 'Trebuchet MS', sans-serif;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #1E1E2F;
+    color: white;
+}
+
+h1, h2, h3 {
+    color: #00FFFF !important;
+    font-family: 'Roboto', 'Trebuchet MS', sans-serif;
+    font-weight: bold;
+}
+
+[data-testid="stMetricValue"] {
+    color: #39FF14 !important;
+    font-size: 28px;
+}
+
+[data-testid="stMetricDelta"] {
+    color: #FFD700 !important;
+    font-size: 18px;
+}
+
+.stButton > button {
+    background: linear-gradient(90deg, #FF4B4B, #FF9900);
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+}
+"""
+
+def local_css(css_text: str):
+    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
+
+# Apply the CSS styles
+local_css(custom_css)
+
+# Example Streamlit title (this will be styled by the CSS)
+st.title("📈 Stock Price Predictor")
+
 
 import streamlit as st
 import yfinance as yf
@@ -350,6 +405,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
