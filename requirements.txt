@@ -5,5 +5,7 @@ matplotlib
 scikit-learn
 requests
 yfinance
+plotly>=5.10.0
+
 
 
