@@ -215,6 +215,22 @@ ticker_mode = st.sidebar.radio(
     "Ticker input mode:",
     ("🔍 Search by name", "🔤 Enter custom")
 )
+# Insert this right after your st.sidebar.header or wherever you show the text
+
+st.markdown(
+    """
+    <style>
+    .custom-ticker-text {
+        color: white !important;
+        font-size: 14px !important;
+        font-weight: normal !important;
+        margin-bottom: 10px;
+    }
+    </style>
+    <div class="custom-ticker-text">Global + Custom</div>
+    """,
+    unsafe_allow_html=True
+)
 
 if ticker_mode == "🔍 Search by name":
     options = format_options(tickers, names)
@@ -325,6 +341,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
