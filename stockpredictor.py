@@ -212,9 +212,6 @@ if predict_btn:
             st.metric("Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
             
 
-            # Recent Data Table
-            st.subheader("📋 Recent Data")
-            st.dataframe(df.tail(20))
             # Price Chart
             st.subheader("📈 Price Chart")
             fig, ax = plt.subplots(figsize=(10, 5))
@@ -264,6 +261,7 @@ if predict_btn:
             # Recent Data Table
             st.subheader("📋 Recent Data")
             st.dataframe(df.tail(20))
+
 
 
 
