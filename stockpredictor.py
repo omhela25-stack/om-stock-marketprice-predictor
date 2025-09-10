@@ -178,99 +178,6 @@ with col2:
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-# You can call streamlit's `st.experimental_rerun()` or use @st.experimental_memo TTLs to refresh data and animations automatically.
-
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import plotly.graph_objects as go
-import time
-
-# Fetch live prices for ticker list [for ticker text]
-@st.cache_data(ttl=60)
-def get_latest_prices(tickers):
-    prices = {}
-    for ticker in tickers:
-        try:
-            data = yf.Ticker(ticker).history(period="1d")
-            if not data.empty:
-                prices[ticker] = data["Close"].iloc[-1]
-            else:
-                prices[ticker] = None
-        except Exception:
-            prices[ticker] = None
-    return prices
-
-# Fetch recent prices (1 day intraday data or 1-week daily)
-@st.cache_data(ttl=60)
-def get_recent_prices(ticker):
-    try:
-        data = yf.Ticker(ticker).history(period="5d", interval="15m")
-        if not data.empty:
-            return data["Close"]
-        else:
-            return pd.Series()
-    except Exception:
-        return pd.Series()
-
-tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN"]
-prices = get_latest_prices(tickers)
-marquee_text = "  ⚫  ".join(
-    [f"{t} (${prices[t]:.2f})" if prices[t] is not None else f"{t} (N/A)" for t in tickers]
-)
-
-marquee_html = f"""
-<div style="white-space: nowrap; overflow: hidden; width: 70%; background-color:#1E1E2F; color:#39FF14; font-weight:bold; padding: 5px 0;">
-  <div style="
-    display: inline-block;
-    padding-left: 100%;
-    animation: marquee 25s linear infinite;
-    font-family: 'Trebuchet MS', sans-serif;
-    font-size: 16px;
-  ">
-    {marquee_text}
-  </div>
-</div>
-<style>
-@keyframes marquee {{
-  0%   {{ transform: translateX(0%); }}
-  100% {{ transform: translateX(-100%); }}
-}}
-</style>
-"""
-
-# Layout: Two columns - marquee + small chart
-col1, col2 = st.columns([7, 3])
-
-with col1:
-    st.markdown(marquee_html, unsafe_allow_html=True)
-
-with col2:
-    selected_ticker = st.selectbox("Chart ticker:", tickers, index=0)
-    recent_prices = get_recent_prices(selected_ticker)
-
-    if recent_prices.empty:
-        st.write("No recent price data to show.")
-    else:
-        fig = go.Figure(
-            data=[go.Scatter(
-                x=recent_prices.index,
-                y=recent_prices.values,
-                mode='lines+markers',
-                line=dict(color='limegreen'),
-                marker=dict(color='limegreen'),
-                hovertemplate='%{x:%H:%M} <br> Price: %{y:.2f}<extra></extra>'
-            )]
-        )
-        fig.update_layout(
-            margin=dict(l=0,r=0,t=0,b=0),
-            height=100,
-            xaxis=dict(showgrid=False, visible=False),
-            yaxis=dict(showgrid=False, visible=False),
-            plot_bgcolor="#1E1E2F",
-            paper_bgcolor="#1E1E2F",
-        )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # You can call streamlit's `st.experimental_rerun()` or use @st.experimental_memo TTLs to refresh data and animations automatically.
 
@@ -513,6 +420,7 @@ st.markdown(
 )
 
             
+
 
 
 
