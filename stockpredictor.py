@@ -47,12 +47,11 @@ def load_full_tickers(include_global=True, top_n=500):
                 data.append({"Symbol": t, "Name": name})
             except Exception:
                 data.append({"Symbol": t, "Name": t})
-            time.sleep(0.04)  # be nice to Yahoo! slow is safer
+            time.sleep(0.04)  # be nice to Yahoo! API
         tickers_df = pd.DataFrame(data)
         tickers = tickers_df["Symbol"].fillna("").tolist()
         names = tickers_df["Name"].fillna("").tolist()
     except Exception:
-        # Fallback: just a few popular tickers
         tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "NFLX", "RELIANCE.NS", "TCS.NS"]
         names = ["Apple", "Microsoft", "Tesla", "Google", "Amazon", 
                  "Netflix", "Reliance Industries", "Tata Consultancy"]
@@ -188,10 +187,13 @@ if predict_btn:
                 last_close = df["Close"].iloc[-1]
                 last_volume = df["Volume"].iloc[-1]
                 last_rsi = df["RSI"].iloc[-1]
-                # Scalar conversion if needed
-                if isinstance(last_close, (pd.Series, np.ndarray)): last_close = float(last_close.item())
-                if isinstance(last_volume, (pd.Series, np.ndarray)): last_volume = float(last_volume.item())
-                if isinstance(last_rsi, (pd.Series, np.ndarray)): last_rsi = float(last_rsi.item())
+                # Ensure scalar floats
+                if isinstance(last_close, (pd.Series, np.ndarray)):
+                    last_close = float(last_close.item())
+                if isinstance(last_volume, (pd.Series, np.ndarray)):
+                    last_volume = float(last_volume.item())
+                if isinstance(last_rsi, (pd.Series, np.ndarray)):
+                    last_rsi = float(last_rsi.item())
                 col1.metric("Current Price", f"${last_close:.2f}")
                 col2.metric("Volume", f"{last_volume:,.0f}")
                 col3.metric("RSI", f"{last_rsi:.2f}")
@@ -204,11 +206,17 @@ if predict_btn:
             st.subheader("🤖 Model Performance")
             st.write(metrics)
 
-            # Prediction
+            # Prediction with scalar fix
             pred_price = predict_next(model, scaler, df, ma1, ma2)
+            if isinstance(pred_price, (pd.Series, np.ndarray)):
+                pred_price = pred_price.item() if hasattr(pred_price, 'item') else pred_price[0]
+
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = (change / current_price) * 100
+            if isinstance(pct, (pd.Series, np.ndarray)):
+                pct = pct.item() if hasattr(pct, 'item') else pct[0]
+
             st.metric("🔮 Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
             # Charts
@@ -259,6 +267,7 @@ st.markdown(
 )
 
             
+
 
 
 
