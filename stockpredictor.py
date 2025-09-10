@@ -50,60 +50,116 @@ def local_css(css_text: str):
 
 local_css(custom_css)
 
-# -------- Custom One-Line Header --------
-col1, col2, col3 = st.columns([4, 4, 2])
+# -------- Row-wise Custom Header --------
+st.markdown(
+    """
+    <h1 style="
+        font-family: 'Roboto', 'Trebuchet MS', sans-serif; 
+        color: #00FFFF; 
+        font-weight: bold; 
+        margin-bottom: 0.1rem;
+        line-height: 1.2;
+        text-align: center;
+    ">
+        📈 Stock Price Predictor
+    </h1>
+    """,
+    unsafe_allow_html=True,
+)
 
-with col1:
-    st.markdown(
-        """
-        <h1 style="
-            font-family: 'Roboto', 'Trebuchet MS', sans-serif; 
-            color: #00FFFF; 
-            font-weight: bold; 
-            margin-bottom: 0;
-            line-height: 1.2;
-        ">
-            📈 Stock Price Predictor
-        </h1>
-        """,
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    """
+    <h3 style="
+        font-family: 'Trebuchet MS', sans-serif;
+        color: #FF1493;
+        margin-top: 0.1rem;
+        margin-bottom: 0.1rem;
+        font-weight: normal;
+        line-height: 1.2;
+        text-align: center;
+    ">
+        Global + Custom Stocks Analysis
+    </h3>
+    """,
+    unsafe_allow_html=True,
+)
 
-with col2:
-    st.markdown(
-        """
-        <h3 style="
-            font-family: 'Trebuchet MS', sans-serif;
-            color: #FF1493;
-            margin-top: 8px;
-            margin-bottom: 0;
-            font-weight: normal;
-            line-height: 1.2;
-        ">
-            Global + Custom Stocks Analysis
-        </h3>
-        """,
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    f"""
+    <h4 style="
+        font-family: 'Trebuchet MS', sans-serif;
+        color: #FFD700;
+        margin-top: 0.1rem;
+        margin-bottom: 0.5rem;
+        font-weight: normal;
+        line-height: 1.2;
+        font-style: italic;
+        text-align: center;
+    ">
+        {datetime.now().strftime('%b %d, %Y %H:%M')}
+    </h4>
+    """,
+    unsafe_allow_html=True,
+)
+import streamlit as st
+import yfinance as yf
+import time
+import pandas as pd
 
-with col3:
-    st.markdown(
-        f"""
-        <h4 style="
-            font-family: 'Trebuchet MS', sans-serif;
-            color: #FFD700;
-            margin-top: 12px;
-            margin-bottom: 0;
-            font-weight: normal;
-            text-align: right;
-            line-height: 1.2;
-            font-style: italic;
-        ">
-            {datetime.now().strftime('%b %d, %Y %H:%M')}
-        </h4>
-        """,
-        unsafe_allow_html=True,
-    )
+# Function to fetch live prices for a list of tickers
+@st.cache_data(ttl=60)  # Cache for 1 minute
+def get_latest_prices(tickers):
+    prices = {}
+    for ticker in tickers:
+        try:
+            data = yf.Ticker(ticker).history(period="1d")
+            if not data.empty:
+                prices[ticker] = data["Close"].iloc[-1]
+            else:
+                prices[ticker] = None
+        except Exception:
+            prices[ticker] = None
+    return prices
+
+# Your tickers list (can replace with dynamic from your app)
+tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "RELIANCE.NS", "TCS.NS"]
+
+# Fetch prices
+prices = get_latest_prices(tickers)
+
+# Build marquee text with ticker and price
+marquee_text = "  ⚫  ".join(
+    [f"{t} (${prices[t]:.2f})" if prices[t] is not None else f"{t} (N/A)" for t in tickers]
+)
+
+# Marquee HTML + CSS for sliding effect
+marquee_html = f"""
+<div style="white-space: nowrap; overflow: hidden; width: 100%; background-color:#1E1E2F; color:#39FF14; font-weight:bold; padding: 5px 0;">
+  <div style="
+    display: inline-block;
+    padding-left: 100%;
+    animation: marquee 25s linear infinite;
+    font-family: 'Trebuchet MS', sans-serif;
+    font-size: 16px;
+  ">
+    {marquee_text}
+  </div>
+</div>
+<style>
+@keyframes marquee {{
+  0%   {{ transform: translateX(0%); }}
+  100% {{ transform: translateX(-100%); }}
+}}
+</style>
+"""
+
+# Display at top of the app
+st.markdown(marquee_html, unsafe_allow_html=True)
+
+# --- Rest of your app code below ---
+
+# Example: Use the ticker from dropdown or custom input as you do in your app
+# ... Your existing sidebar and main app logic ...
 
 # -------------- TICKER + COMPANY NAME LOGIC ---------------
 @st.cache_data(show_spinner=True, ttl=6*3600)
@@ -338,6 +394,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+
 
 
 
