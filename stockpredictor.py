@@ -20,7 +20,7 @@ custom_css = """
 /* App background */
 .main {background-color: #FF1493 ; color: #FF1493;font-family: 'Trebuchet MS', sans-serif;}
 [data-testid="stSidebar"] {background-color: #1E1E2F; color: white;}
-h1, h2, h3 {color: #FF1493 !important; font-weight: bold;}
+h1, h2, h3 {color: #FF0000 !important; font-weight: bold;}
 [data-testid="stMetricValue"] {color: #39FF14 !important;font-size: 28px;}
 [data-testid="stMetricDelta"] {color: #FFD700 !important;font-size: 18px;}
 .stButton>button {background: linear-gradient(90deg, #FF4B4B, #FF9900); color: white;
@@ -325,6 +325,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
