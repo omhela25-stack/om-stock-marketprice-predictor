@@ -45,9 +45,6 @@ h1, h2, h3 {
 }
 """
 
-st.markdown(header_html, unsafe_allow_html=True)
-
-
 def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
 
@@ -104,65 +101,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-import streamlit as st
-import yfinance as yf
-import time
-import pandas as pd
-
-# Function to fetch live prices for a list of tickers
-@st.cache_data(ttl=60)  # Cache for 1 minute
-def get_latest_prices(tickers):
-    prices = {}
-    for ticker in tickers:
-        try:
-            data = yf.Ticker(ticker).history(period="1d")
-            if not data.empty:
-                prices[ticker] = data["Close"].iloc[-1]
-            else:
-                prices[ticker] = None
-        except Exception:
-            prices[ticker] = None
-    return prices
-
-# Your tickers list (can replace with dynamic from your app)
-tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "RELIANCE.NS", "TCS.NS"]
-
-# Fetch prices
-prices = get_latest_prices(tickers)
-
-# Build marquee text with ticker and price
-marquee_text = "  ⚫  ".join(
-    [f"{t} (${prices[t]:.2f})" if prices[t] is not None else f"{t} (N/A)" for t in tickers]
-)
-
-# Marquee HTML + CSS for sliding effect
-marquee_html = f"""
-<div style="white-space: nowrap; overflow: hidden; width: 100%; background-color:#1E1E2F; color:#39FF14; font-weight:bold; padding: 5px 0;">
-  <div style="
-    display: inline-block;
-    padding-left: 100%;
-    animation: marquee 25s linear infinite;
-    font-family: 'Trebuchet MS', sans-serif;
-    font-size: 16px;
-  ">
-    {marquee_text}
-  </div>
-</div>
-<style>
-@keyframes marquee {{
-  0%   {{ transform: translateX(0%); }}
-  100% {{ transform: translateX(-100%); }}
-}}
-</style>
-"""
-
-# Display at top of the app
-st.markdown(marquee_html, unsafe_allow_html=True)
-
-# --- Rest of your app code below ---
-
-# Example: Use the ticker from dropdown or custom input as you do in your app
-# ... Your existing sidebar and main app logic ...
 
 # -------------- TICKER + COMPANY NAME LOGIC ---------------
 @st.cache_data(show_spinner=True, ttl=6*3600)
@@ -397,6 +335,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
