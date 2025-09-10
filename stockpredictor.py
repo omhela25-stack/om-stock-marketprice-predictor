@@ -9,15 +9,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
-
 warnings.filterwarnings('ignore')
 
 # -------------- CONFIG & STYLE --------------
-import streamlit as st
-import yfinance as yf
-import time
-import pandas as pd
-
 custom_css = """
 /* App background */
 .main {
@@ -53,14 +47,9 @@ h1, h2, h3 {
 def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
 
-# Apply the CSS styles
 local_css(custom_css)
 
-# Example Streamlit title (this will be styled by the CSS)
-st.title("📈 Stock Price Predictor")
-
-# Function to fetch live prices for a list of tick
-
+st.title("📈 Stock Price Predictor (Global + Custom)")
 
 # -------------- TICKER + COMPANY NAME LOGIC ---------------
 @st.cache_data(show_spinner=True, ttl=6*3600)
@@ -179,16 +168,13 @@ def predict_next(model, scaler, df, ma1=20, ma2=50):
     return pred
 
 # ---------------- STREAMLIT UI ----------------
-st.title("📈 Stock Price Predictor (Global + Custom)")
+tickers, names = load_full_tickers()
 
 st.sidebar.header("⚙️ Settings")
-
-tickers, names = load_full_tickers()
 ticker_mode = st.sidebar.radio(
     "Ticker input mode:",
     ("🔍 Search by name", "🔤 Enter custom")
 )
-
 if ticker_mode == "🔍 Search by name":
     options = format_options(tickers, names)
     ticker_display = st.sidebar.selectbox("Search or pick stock", list(options.keys()))
@@ -236,6 +222,7 @@ if predict_btn:
             # Train model
             with st.spinner(f"Training model for {ticker}..."):
                 model, scaler, metrics = train_model(df, ma1, ma2)
+
             st.subheader("🤖 Model Performance")
             st.write(metrics)
 
@@ -243,7 +230,6 @@ if predict_btn:
             pred_price = predict_next(model, scaler, df, ma1, ma2)
             if isinstance(pred_price, (pd.Series, np.ndarray)):
                 pred_price = pred_price.item() if hasattr(pred_price, 'item') else pred_price[0]
-
             current_price = df["Close"].iloc[-1]
             change = pred_price - current_price
             pct = (change / current_price) * 100
