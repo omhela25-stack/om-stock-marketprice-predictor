@@ -319,12 +319,13 @@ if predict_btn:
 # Footer
 st.markdown(
     """
-    <div style="text-align: center; color: purple ; padding: 10px; font-size: 14px;">
+    <div style="text-align: center; color: light green ; padding: 10px; font-size: 14px;">
         Made by <b> Om Hela , </b>(Minor in AI) IIT ROPAR
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
 
 
