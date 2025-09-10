@@ -16,16 +16,41 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="📈 Stock Price Predictor", layout="wide")
 def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
-custom_css = """
 /* App background */
-.main {background-color: #E0115F ; color: #FF1493;font-Roboto: 'Trebuchet MS', sans-serif;}
-[data-testid="stSidebar"] {background-color: #1E1E2F; color: white;}
-h1, h2, h3 {color: #00FFFF !font-family: 'Roboto', 'Trebuchet MS',: bold;}
-[data-testid="stMetricValue"] {color: #39FF14 !important;font-size: 28px;}
-[data-testid="stMetricDelta"] {color: #FFD700 !important;font-size: 18px;}
-.stButton>button {background: linear-gradient(90deg, #FF4B4B, #FF9900); color: white;
-border-radius: 8px;font-weight: bold;}
-"""
+.main {
+    background-color: #E0115F;
+    color: #FF1493;
+    font-family: 'Roboto', 'Trebuchet MS', sans-serif;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #1E1E2F;
+    color: white;
+}
+
+h1, h2, h3 {
+    color: #00FFFF !important;
+    font-family: 'Roboto', 'Trebuchet MS', sans-serif;
+    font-weight: bold;
+}
+
+[data-testid="stMetricValue"] {
+    color: #39FF14 !important;
+    font-size: 28px;
+}
+
+[data-testid="stMetricDelta"] {
+    color: #FFD700 !important;
+    font-size: 18px;
+}
+
+.stButton > button {
+    background: linear-gradient(90deg, #FF4B4B, #FF9900);
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
 plt.style.use("seaborn-v0_8-darkgrid")
 local_css(custom_css)
 
@@ -325,6 +350,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
