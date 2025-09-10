@@ -320,11 +320,12 @@ if predict_btn:
 st.markdown(
     """
     <div style="text-align: center; color: gray; padding: 10px; font-size: 14px;">
-        Made by <b>Om Hela</b>, Student (Minor in AI, IIT Ropar)
+        i love <b>my baby </b>, swati
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
 
 
