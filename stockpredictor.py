@@ -44,6 +44,29 @@ h1, h2, h3 {
     font-weight: bold;
 }
 """
+from datetime import datetime
+import pytz
+
+ist = pytz.timezone('Asia/Kolkata')
+now_ist = datetime.now(ist)
+
+st.markdown(
+    f"""
+    <h4 style="
+        font-family: 'Trebuchet MS', sans-serif;
+        color: #FFD700;
+        margin-top: 0.1rem;
+        margin-bottom: 0.5rem;
+        font-weight: normal;
+        line-height: 1.2;
+        font-style: italic;
+        text-align: center;
+    ">
+        {now_ist.strftime('%b %d, %Y %H:%M')}
+    </h4>
+    """,
+    unsafe_allow_html=True,
+)
 
 def local_css(css_text: str):
     st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
@@ -394,6 +417,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
