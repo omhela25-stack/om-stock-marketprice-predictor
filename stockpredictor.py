@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import yfinance as yf
 import time
 from sklearn.ensemble import RandomForestRegressor
@@ -9,80 +10,207 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
-# -------------- CSS STYLE --------------
-custom_css = """
-/* App background */
-.main {
-    background-color: #E0115F;
-    color: #FF1493;
+# ---------------- Page config & basic style ----------------
+st.set_page_config(
+    page_title="AI Stock Predictor",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+CUSTOM_CSS = """
+/* App background & text */
+[data-testid="stAppViewContainer"] {
+    background-color: #0f0f14;
+    color: #E6E6FA;
     font-family: 'Roboto', 'Trebuchet MS', sans-serif;
 }
+
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #1E1E2F;
-    color: white;
+    background-color: #11111a;
+    color: #ffffff;
 }
+
+/* Header */
 h1, h2, h3 {
     color: #00FFFF !important;
     font-family: 'Roboto', 'Trebuchet MS', sans-serif;
     font-weight: bold;
 }
-[data-testid="stMetricValue"] {
-    color: #39FF14 !important;
-    font-size: 28px;
-}
-[data-testid="stMetricDelta"] {
-    color: #FFD700 !important;
-    font-size: 18px;
-}
+
+/* Metrics */
+[data-testid="stMetricValue"] { color: #39FF14 !important; font-size: 24px; }
+[data-testid="stMetricDelta"] { color: #FFD700 !important; font-size: 14px; }
+
+/* Buttons */
 .stButton > button {
     background: linear-gradient(90deg, #FF4B4B, #FF9900);
     color: white;
     border-radius: 8px;
     font-weight: bold;
 }
+
+/* Card like containers */
+.card {
+    background:#12121a;
+    padding:12px;
+    border-radius:10px;
+    border:1px solid #222;
+    margin-bottom:10px;
+}
 """
-import streamlit as st
-import yfinance as yf
-import time
-import pandas as pd
 
-# Function to fetch live prices for a list of tickers
-@st.cache_data(ttl=60)  # Cache for 1 minute
-def get_latest_prices(tickers):
-    prices = {}
-    for ticker in tickers:
-        try:
-            data = yf.Ticker(ticker).history(period="1d")
-            if not data.empty:
-                prices[ticker] = data["Close"].iloc[-1]
-            else:
-                prices[ticker] = None
-        except Exception:
-            prices[ticker] = None
-    return prices
+st.markdown(f"<style>{CUSTOM_CSS}</style>", unsafe_allow_html=True)
 
-# Your tickers list (can replace with dynamic from your app)
-tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "RELIANCE.NS", "TCS.NS"]
+# ---------------- Utilities & Caching ----------------
+@st.cache_data(ttl=120, show_spinner=False)
+def get_batch_prices(ticker_list):
+    """Batch fetch today's close price via yf.download to reduce calls."""
+    try:
+        # yf.download returns columns like ('Close','AAPL') if multiple tickers.
+        data = yf.download(ticker_list, period="1d", interval="1d", progress=False, threads=True)
+        prices = {}
+        if data.empty:
+            for t in ticker_list:
+                prices[t] = None
+            return prices
 
-# Fetch prices
-prices = get_latest_prices(tickers)
+        # If single ticker, align shape
+        if isinstance(data.columns, pd.MultiIndex):
+            closes = data['Close'].iloc[-1]
+            for t in ticker_list:
+                prices[t] = float(closes.get(t, np.nan)) if pd.notna(closes.get(t, np.nan)) else None
+        else:
+            # only one ticker requested
+            prices[ticker_list[0]] = float(data['Close'].iloc[-1]) if not data.empty else None
+            for t in ticker_list[1:]:
+                prices[t] = None
+        return prices
+    except Exception:
+        return {t: None for t in ticker_list}
 
-# Build marquee text with ticker and price
-marquee_text = "  ⚫  ".join(
-    [f"{t} (${prices[t]:.2f})" if prices[t] is not None else f"{t} (N/A)" for t in tickers]
-)
+@st.cache_data(ttl=6*3600, show_spinner=True)
+def load_ticker_list(top_n=500, include_global=True):
+    """Load a list of tickers (S&P / NASDAQ) - limited first-run overhead.
+       We don't call .info for each ticker here to keep it fast."""
+    # Fallback short list in case yf.tickers_* are unavailable
+    try:
+        sp = yf.tickers_sp500()
+        nas = yf.tickers_nasdaq()
+        base = list(dict.fromkeys((sp or []) + (nas or [])))[:top_n]
+    except Exception:
+        base = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "NFLX", "RELIANCE.NS", "TCS.NS"]
+    tickers = base.copy()
+    names = [t for t in tickers]  # placeholder names (we'll fetch the selected ticker's name when needed)
+    if include_global:
+        extras = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HSBA.L", "BMW.DE", "DAI.DE"]
+        for e in extras:
+            if e not in tickers:
+                tickers.append(e)
+                names.append(e)
+    return tickers, names
 
-# Marquee HTML + CSS for sliding effect
+# ---------------- Data fetching ----------------
+@st.cache_data(ttl=300, show_spinner=True)
+def fetch_stock_history(ticker, period="1Y"):
+    period_map = {"1M": "1mo", "3M": "3mo", "6M": "6mo", "1Y": "1y", "2Y": "2y", "5Y": "5y"}
+    yf_period = period_map.get(period, "1y")
+    try:
+        df = yf.download(ticker, period=yf_period, interval="1d", progress=False)
+        if df.empty:
+            return pd.DataFrame()
+        df = df.reset_index().rename(columns={"Date": "Date", "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"})
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+# ---------------- Feature engineering ----------------
+def calculate_rsi(prices, window=14):
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+def process_data(df, ma1=20, ma2=50):
+    df = df.copy()
+    df[f"MA{ma1}"] = df["Close"].rolling(ma1).mean()
+    df[f"MA{ma2}"] = df["Close"].rolling(ma2).mean()
+    df["RSI"] = calculate_rsi(df["Close"])
+    df["Return"] = df["Close"].pct_change()
+    for lag in [1,2,3,5]:
+        df[f"Close_lag{lag}"] = df["Close"].shift(lag)
+    df = df.dropna().reset_index(drop=True)
+    return df
+
+def prepare_features(df, ma1=20, ma2=50):
+    features = ["Open","High","Low","Volume", f"MA{ma1}", f"MA{ma2}", "RSI", "Return", "Close_lag1", "Close_lag2", "Close_lag3", "Close_lag5"]
+    X = df[features].fillna(0)
+    y = df["Close"]
+    return X, y
+
+# ---------------- Model training & predict ----------------
+def train_model(df, ma1=20, ma2=50):
+    X, y = prepare_features(df, ma1, ma2)
+    if len(X) < 20:
+        raise ValueError("Not enough data for training")
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s = scaler.transform(X_test)
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train_s, y_train)
+    y_pred = model.predict(X_test_s)
+    metrics = {
+        "RMSE": float(np.sqrt(mean_squared_error(y_test, y_pred))),
+        "MAE": float(mean_absolute_error(y_test, y_pred)),
+        "R2": float(r2_score(y_test, y_pred))
+    }
+    return model, scaler, metrics
+
+def predict_next(model, scaler, df, ma1=20, ma2=50):
+    X, _ = prepare_features(df, ma1, ma2)
+    last = X.iloc[-1:].values
+    pred = model.predict(scaler.transform(last))
+    if hasattr(pred, "__len__"):
+        return float(pred[0])
+    return float(pred)
+
+# ---------------- Sidebar / Inputs ----------------
+tickers, names = load_ticker_list()
+
+st.sidebar.header("⚙️ Settings")
+ticker_mode = st.sidebar.radio("Ticker input mode:", ("🔍 Search by name", "🔤 Enter custom"))
+if ticker_mode == "🔍 Search by name":
+    # show a searchable selectbox using display = symbol - symbol (no heavy .info calls)
+    options = [t for t in tickers]
+    ticker = st.sidebar.selectbox("Pick stock", options, index=options.index("AAPL") if "AAPL" in options else 0)
+else:
+    ticker = st.sidebar.text_input("Enter custom stock ticker (e.g., RELIANCE.NS)", "AAPL").strip().upper()
+
+period = st.sidebar.selectbox("Period", ["1M","3M","6M","1Y","2Y","5Y"], index=3)
+ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1)
+ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5)
+rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70)
+rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30)
+predict_btn = st.sidebar.button("🚀 Predict")
+
+# ---------------- Top marquee (live prices) ----------------
+marquee_tickers = ["AAPL","MSFT","TSLA","GOOGL","AMZN","RELIANCE.NS","TCS.NS"]
+batch_prices = get_batch_prices(marquee_tickers)
+marquee_text = "  ⚫  ".join([f"{t} (${batch_prices.get(t):.2f})" if batch_prices.get(t) is not None else f"{t} (N/A)" for t in marquee_tickers])
 marquee_html = f"""
-<div style="white-space: nowrap; overflow: hidden; width: 100%; background-color:#1E1E2F; color:#39FF14; font-weight:bold; padding: 5px 0;">
+<div style="white-space: nowrap; overflow: hidden; width: 100%; background-color:#0b0b10; color:#39FF14; font-weight:bold; padding: 6px 0; border-radius:6px;">
   <div style="
     display: inline-block;
     padding-left: 100%;
-    animation: marquee 25s linear infinite;
+    animation: marquee 28s linear infinite;
     font-family: 'Trebuchet MS', sans-serif;
-    font-size: 16px;
+    font-size: 15px;
   ">
     {marquee_text}
   </div>
@@ -94,355 +222,157 @@ marquee_html = f"""
 }}
 </style>
 """
-
-# Display at top of the app
 st.markdown(marquee_html, unsafe_allow_html=True)
 
-# --- Rest of your app code below ---
-
-# Example: Use the ticker from dropdown or custom input as you do in your app
-# ... Your existing sidebar and main app logic ...
-
-def local_css(css_text: str):
-    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
-
-local_css(custom_css)
-
-# -------- Row-wise Custom Header without date --------
+# ---------------- Main header ----------------
 st.markdown(
     """
-    <h1 style="
-        font-family: 'Roboto', 'Trebuchet MS', sans-serif; 
-        color: #00FFFF; 
-        font-weight: bold; 
-        margin-bottom: 0.1rem;
-        line-height: 1.2;
-        text-align: center;
-    ">
-        📈 Stock Price Predictor
-    </h1>
-    """,
-    unsafe_allow_html=True,
+    <h1 style="text-align:center; margin-bottom:0.2rem;">📈 Stock Price Predictor</h1>
+    <h3 style="text-align:center; color:#FF1493; margin-top:0.1rem; font-weight:normal;">Global + Custom Stocks Analysis</h3>
+    """, unsafe_allow_html=True
 )
 
-st.markdown(
-    """
-    <h3 style="
-        font-family: 'Trebuchet MS', sans-serif;
-        color: #FF1493;
-        margin-top: 0.1rem;
-        margin-bottom: 0.5rem;
-        font-weight: normal;
-        line-height: 1.2;
-        text-align: center;
-    ">
-        Global + Custom Stocks Analysis
-    </h3>
-    """,
-    unsafe_allow_html=True,
-)
-
-# -------------- TICKER + COMPANY NAME LOGIC ---------------
-@st.cache_data(show_spinner=True, ttl=6*3600)
-def load_full_tickers(include_global=True, top_n=500):
-    tickers = []
-    names = []
-    try:
-        st.info("⏳ Fetching S&P500 / NASDAQ tickers & company names (first run can take ~20 sec)...")
-        sp500 = yf.tickers_sp500()
-        nasdaq = yf.tickers_nasdaq()
-        base = list(set(sp500 + nasdaq))[:top_n]
-        data = []
-        for t in base:
-            try:
-                info = yf.Ticker(t).info
-                name = info.get('shortName') or info.get('longName') or t
-                data.append({"Symbol": t, "Name": name})
-            except Exception:
-                data.append({"Symbol": t, "Name": t})
-            time.sleep(0.04)  # be nice to Yahoo! API
-        tickers_df = pd.DataFrame(data)
-        tickers = tickers_df["Symbol"].fillna("").tolist()
-        names = tickers_df["Name"].fillna("").tolist()
-    except Exception:
-        tickers = ["AAPL", "MSFT", "TSLA", "GOOGL", "AMZN", "NFLX", "RELIANCE.NS", "TCS.NS"]
-        names = ["Apple", "Microsoft", "Tesla", "Google", "Amazon", 
-                 "Netflix", "Reliance Industries", "Tata Consultancy"]
-    if include_global:
-        extra = [
-            ("RELIANCE.NS", "Reliance Industries"),
-            ("TCS.NS", "Tata Consultancy"),
-            ("INFY.NS", "Infosys"),
-            ("HSBA.L", "HSBC Holdings"),
-            ("BMW.DE", "BMW AG"),
-            ("DAI.DE", "Mercedes-Benz"),
-        ]
-        for symbol, name in extra:
-            if symbol not in tickers:
-                tickers.append(symbol)
-                names.append(name)
-    return tickers, names
-
-def format_options(tickers, names):
-    return {f"{sym} - {nam}": sym for sym, nam in zip(tickers, names)}
-
-# -------------- FETCH DATA -----------------
-@st.cache_data(ttl=300)
-def fetch_stock_data(ticker, period="1Y"):
-    try:
-        period_map = {
-            "1M": "1mo", "3M": "3mo", "6M": "6mo",
-            "1Y": "1y", "2Y": "2y", "5Y": "5y"
-        }
-        yf_period = period_map.get(period, "1y")
-        df = yf.download(ticker, period=yf_period, interval="1d", progress=False)
-        if df.empty:
-            raise Exception("No data returned from Yahoo Finance")
-        df = df.reset_index()
-        return df.rename(columns={
-            "Date": "Date", "Open": "Open", "High": "High",
-            "Low": "Low", "Close": "Close", "Volume": "Volume"
-        })
-    except Exception as e:
-        st.error(f"Data fetch failed: {e}")
-        return pd.DataFrame()
-
-# ------------- FEATURE ENGINEERING ----------
-def calculate_rsi(prices, window=14):
-    delta = prices.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
-
-def process_data(df, ma1=20, ma2=50):
-    df[f"MA{ma1}"] = df["Close"].rolling(ma1).mean()
-    df[f"MA{ma2}"] = df["Close"].rolling(ma2).mean()
-    df["RSI"] = calculate_rsi(df["Close"])
-    df["Return"] = df["Close"].pct_change()
-    for lag in [1, 2, 3, 5]:
-        df[f"Close_lag{lag}"] = df["Close"].shift(lag)
-    return df.dropna()
-
-def prepare_features(df, ma1=20, ma2=50):
-    features = ["Open", "High", "Low", "Volume", f"MA{ma1}", f"MA{ma2}",
-                "RSI", "Return", "Close_lag1", "Close_lag2", "Close_lag3", "Close_lag5"]
-    X = df[features].fillna(0)
-    y = df["Close"]
-    return X, y
-
-# -------------- MODEL ------------------
-def train_model(df, ma1=20, ma2=50):
-    X, y = prepare_features(df, ma1, ma2)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, shuffle=False
-    )
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train_scaled, y_train)
-    y_pred = model.predict(X_test_scaled)
-    metrics = {
-        "RMSE": np.sqrt(mean_squared_error(y_test, y_pred)),
-        "MAE": mean_absolute_error(y_test, y_pred),
-        "R2": r2_score(y_test, y_pred)
-    }
-    return model, scaler, metrics
-
-def predict_next(model, scaler, df, ma1=20, ma2=50):
-    X, _ = prepare_features(df, ma1, ma2)
-    last_row = X.iloc[-1:].values
-    pred = model.predict(scaler.transform(last_row))
-    if isinstance(pred, (pd.Series, np.ndarray)):
-        return pred[0]
-    return pred
-
-# ---------------- STREAMLIT UI ----------------
-tickers, names = load_full_tickers()
-
-st.sidebar.header("⚙️ Settings")
-ticker_mode = st.sidebar.radio(
-    "Ticker input mode:",
-    ("🔍 Search by name", "🔤 Enter custom")
-)
-if ticker_mode == "🔍 Search by name":
-    options = format_options(tickers, names)
-    ticker_display = st.sidebar.selectbox("Search or pick stock", list(options.keys()))
-    ticker = options[ticker_display]
-else:
-    ticker = st.sidebar.text_input("Enter custom stock ticker (e.g., RELIANCE.NS)", "AAPL")
-
-period = st.sidebar.selectbox("Period", ["1M", "3M", "6M", "1Y", "2Y", "5Y"], index=3)
-ma1 = st.sidebar.number_input("Short MA", value=20, min_value=5, max_value=50, step=1)
-ma2 = st.sidebar.number_input("Long MA", value=50, min_value=10, max_value=200, step=5)
-rsi_upper = st.sidebar.slider("RSI Overbought", 60, 90, 70)
-rsi_lower = st.sidebar.slider("RSI Oversold", 10, 40, 30)
-predict_btn = st.sidebar.button("🚀 Predict")
-
+# ---------------- Predict workflow ----------------
 if predict_btn:
     st.markdown(f"## 📊 Results for **{ticker}**")
-    with st.spinner(f"Fetching data for {ticker}..."):
-        df = fetch_stock_data(ticker, period)
+    with st.spinner(f"Fetching history for {ticker}..."):
+        df = fetch_stock_history(ticker, period)
     if df.empty:
-        st.error(f"No data available for {ticker}.")
+        st.error(f"No historical data available for {ticker}. Try a different ticker or shorter period.")
     else:
+        # process and require enough rows
         df = process_data(df, ma1, ma2)
         if df.empty or len(df) < max(ma1, ma2) + 10:
-            st.error(f"Not enough data to calculate features for {ticker}.")
+            st.error(f"Not enough data to calculate features for {ticker}. Try increasing the period or reducing MA windows.")
         else:
-            # Display current stats
-            col1, col2, col3 = st.columns(3)
-            try:
-                last_close = df["Close"].iloc[-1]
-                last_volume = df["Volume"].iloc[-1]
-                last_rsi = df["RSI"].iloc[-1]
-                # Ensure scalar floats
-                if isinstance(last_close, (pd.Series, np.ndarray)):
-                    last_close = float(last_close.item())
-                if isinstance(last_volume, (pd.Series, np.ndarray)):
-                    last_volume = float(last_volume.item())
-                if isinstance(last_rsi, (pd.Series, np.ndarray)):
-                    last_rsi = float(last_rsi.item())
-                col1.metric("Current Price", f"${last_close:.2f}")
-                col2.metric("Volume", f"{last_volume:,.0f}")
-                col3.metric("RSI", f"{last_rsi:.2f}")
-            except Exception as e:
-                st.warning(f"⚠️ Could not display latest stats: {e}")
+            # Basic fundamentals for selected ticker (on-demand, single .info call)
+            fundamentals_col, chart_col = st.columns([1,3])
+            with fundamentals_col:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.subheader("📘 Fundamentals")
+                try:
+                    info = yf.Ticker(ticker).info
+                    market_cap = info.get("marketCap", "N/A")
+                    trailing_pe = info.get("trailingPE", "N/A")
+                    fifty_two_high = info.get("fiftyTwoWeekHigh", "N/A")
+                    fifty_two_low = info.get("fiftyTwoWeekLow", "N/A")
+                    short_name = info.get("shortName", ticker)
+                    st.write(f"**{short_name}** ({ticker})")
+                    st.metric("Market Cap", f"{market_cap:,}" if isinstance(market_cap, (int, np.integer)) else market_cap)
+                    st.metric("PE Ratio", trailing_pe)
+                    st.metric("52W High", fifty_two_high)
+                    st.metric("52W Low", fifty_two_low)
+                except Exception:
+                    st.warning("Fundamentals not available.")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # quick live price metric
+                single_price = get_batch_prices([ticker]).get(ticker)
+                if single_price is None:
+                    st.metric("Live Price", "N/A")
+                else:
+                    st.metric("Live Price", f"${single_price:.2f}")
+
+            # display key metrics
+            with chart_col:
+                col1, col2, col3 = st.columns(3)
+                try:
+                    last_close = float(df["Close"].iloc[-1])
+                    last_volume = int(df["Volume"].iloc[-1])
+                    last_rsi = float(df["RSI"].iloc[-1])
+                    col1.metric("Current Price", f"${last_close:.2f}")
+                    col2.metric("Volume", f"{last_volume:,}")
+                    col3.metric("RSI", f"{last_rsi:.2f}")
+                except Exception as e:
+                    st.warning(f"⚠️ Could not display latest stats: {e}")
 
             # Train model
-            with st.spinner(f"Training model for {ticker}..."):
-                model, scaler, metrics = train_model(df, ma1, ma2)
+            with st.spinner("Training model..."):
+                try:
+                    model, scaler, metrics = train_model(df, ma1, ma2)
+                except Exception as e:
+                    st.error(f"Model training failed: {e}")
+                    st.stop()
 
             st.subheader("🤖 Model Performance")
             st.write(metrics)
 
-            # Prediction with scalar fix
+            # Prediction
             pred_price = predict_next(model, scaler, df, ma1, ma2)
-            if isinstance(pred_price, (pd.Series, np.ndarray)):
-                pred_price = pred_price.item() if hasattr(pred_price, 'item') else pred_price[0]
-            current_price = df["Close"].iloc[-1]
+            current_price = float(df["Close"].iloc[-1])
             change = pred_price - current_price
-            pct = (change / current_price) * 100
-            if isinstance(pct, (pd.Series, np.ndarray)):
-                pct = pct.item() if hasattr(pct, 'item') else pct[0]
-
+            pct = (change / current_price) * 100 if current_price != 0 else 0.0
             st.metric("🔮 Predicted Price", f"${pred_price:.2f}", f"{pct:.2f}%")
 
-            # Charts
-            st.subheader("📈 Price Chart")
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.plot(df["Date"], df["Close"], label="Close Price", color="blue")
-            ax.plot(df["Date"], df[f"MA{ma1}"], label=f"MA{ma1}", linestyle="--", color="orange")
-            ax.plot(df["Date"], df[f"MA{ma2}"], label=f"MA{ma2}", linestyle=":", color="green")
+            # Signals: MA crossover (1 for bullish, -1 for bearish)
+            df["Signal"] = np.where(df[f"MA{ma1}"] > df[f"MA{ma2}"], 1, -1)
+            df["Position"] = df["Signal"].diff().fillna(0)
+
+            # ---------------- Charts ----------------
+            st.subheader("📈 Price Chart & Candlestick")
+            # Matplotlib price chart (close + MAs)
+            fig1, ax = plt.subplots(figsize=(10,4))
+            ax.plot(df["Date"], df["Close"], label="Close Price")
+            ax.plot(df["Date"], df[f"MA{ma1}"], label=f"MA{ma1}", linestyle="--")
+            ax.plot(df["Date"], df[f"MA{ma2}"], label=f"MA{ma2}", linestyle=":")
             ax.set_xlabel("Date")
             ax.set_ylabel("Price ($)")
             ax.legend()
-            st.pyplot(fig)
+            st.pyplot(fig1)
 
+            # Plotly candlestick (interactive)
+            fig2 = go.Figure(data=[go.Candlestick(x=df["Date"],
+                                                  open=df["Open"],
+                                                  high=df["High"],
+                                                  low=df["Low"],
+                                                  close=df["Close"])])
+            fig2.update_layout(title=f"{ticker} Candlestick", template="plotly_dark", height=500)
+            st.plotly_chart(fig2, use_container_width=True)
+
+            # Buy / Sell signals plot
+            st.subheader("📌 Buy / Sell Signals (MA Crossover)")
+            fig3, ax = plt.subplots(figsize=(10,4))
+            ax.plot(df["Date"], df["Close"], label="Close", linewidth=1)
+            ax.plot(df["Date"], df[f"MA{ma1}"], label=f"MA{ma1}")
+            ax.plot(df["Date"], df[f"MA{ma2}"], label=f"MA{ma2}")
+
+            buys = df[df["Position"] > 0]
+            sells = df[df["Position"] < 0]
+            if not buys.empty:
+                ax.scatter(buys["Date"], buys["Close"], marker="^", s=80, label="Buy")
+            if not sells.empty:
+                ax.scatter(sells["Date"], sells["Close"], marker="v", s=80, label="Sell")
+            ax.legend()
+            st.pyplot(fig3)
+
+            # RSI chart
             st.subheader("📉 RSI Chart")
-            fig, ax = plt.subplots(figsize=(10, 3))
-            ax.plot(df["Date"], df["RSI"], color="red")
-            ax.axhline(rsi_upper, linestyle="--", color="orange")
-            ax.axhline(rsi_lower, linestyle="--", color="green")
-            ax.set_ylim(0, 100)
-            st.pyplot(fig)
+            fig4, ax = plt.subplots(figsize=(10,2.5))
+            ax.plot(df["Date"], df["RSI"], linewidth=1)
+            ax.axhline(rsi_upper, linestyle="--")
+            ax.axhline(rsi_lower, linestyle="--")
+            ax.set_ylim(0,100)
+            st.pyplot(fig4)
 
-            st.subheader("📊 Volume Chart")
-            try:
-                fig, ax = plt.subplots(figsize=(10, 3))
-                dates = pd.to_datetime(df["Date"]).dt.to_pydatetime().tolist()
-                volumes = df["Volume"].squeeze().astype(float).tolist()
-                if len(dates) != len(volumes):
-                    raise ValueError(f"Length mismatch: {len(dates)} dates vs {len(volumes)} volumes")
-                ax.bar(dates, volumes, color="skyblue")
-                ax.set_xlabel("Date")
-                ax.set_ylabel("Volume")
-                fig.autofmt_xdate()
-                st.pyplot(fig)
-            except Exception as e:
-                st.warning(f"⚠️ Could not render Volume chart: {e}")
+            # Volume chart (bar)
+            st.subheader("📊 Volume")
+            fig5, ax = plt.subplots(figsize=(10,2.5))
+            ax.bar(pd.to_datetime(df["Date"]), df["Volume"])
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Volume")
+            fig5.autofmt_xdate()
+            st.pyplot(fig5)
 
+            # Recent data table
             st.subheader("📋 Recent Data")
-            st.dataframe(df.tail(20))
+            st.dataframe(df.tail(20).reset_index(drop=True))
 
-# Footer
+# ---------------- Footer ----------------
 st.markdown(
     """
     <div style="text-align: center; color: pink ; padding: 10px; font-size: 14px;">
-        Made by <b> Om Hela , </b>(Minor in AI) IIT ROPAR
+        Made by <b>Om Hela</b> (Minor in AI) IIT ROPAR • Upgraded by ChatGPT
     </div>
     """,
     unsafe_allow_html=True
 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
