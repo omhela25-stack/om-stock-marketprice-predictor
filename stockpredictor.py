@@ -64,6 +64,227 @@ h1, h2, h3 {
 """
 
 st.markdown(f"<style>{CUSTOM_CSS}</style>", unsafe_allow_html=True)
+import streamlit as st
+import requests
+from typing import Dict, List
+
+st.set_page_config(page_title="Top Products Catalog", layout="wide")
+
+# ------------------------------------------
+# 🔐 Load SerpAPI Key
+# ------------------------------------------
+SERP_API_KEY = st.secrets["api_keys"]["serpapi"]
+SERP_SEARCH_URL = "https://serpapi.com/search.json"
+
+
+# ------------------------------------------
+# 🔍 Function: Fetch Live Best Prices
+# ------------------------------------------
+@st.cache_data(show_spinner=True)
+def fetch_best_prices(product_name: str):
+    """Fetch best retailer prices using SerpAPI Google Shopping."""
+    params = {
+        "engine": "google_shopping",
+        "q": product_name,
+        "api_key": SERP_API_KEY,
+        "gl": "us"
+    }
+
+    try:
+        res = requests.get(SERP_SEARCH_URL, params=params).json()
+
+        items = res.get("shopping_results", [])
+        if not items:
+            return []
+
+        results = []
+        for item in items[:3]:  # top 3 offers
+            results.append({
+                "title": item.get("title", ""),
+                "price": item.get("price", ""),
+                "source": item.get("source", ""),
+                "link": item.get("link", "")
+            })
+        return results
+
+    except Exception as e:
+        return []
+
+
+# ---------------------------------------------------
+# 📦 Curated Catalog (Top 10 per Category)
+# ---------------------------------------------------
+catalogs: Dict[str, List[Dict]] = {
+
+    # ---------------- SMARTPHONES -------------------
+    "Smartphones": [
+        {
+            "name": "Samsung Galaxy S25 Ultra",
+            "review": "Top-tier camera, display & productivity features.",
+            "benefits": ["Best zoom camera", "Bright OLED", "S Pen features", "Flagship power"]
+        },
+        {
+            "name": "Google Pixel 10 Pro",
+            "review": "Best computational photography & clean Android.",
+            "benefits": ["AI features", "Smooth UI", "Stunning still photos"]
+        },
+        {
+            "name": "iPhone 17 Pro Max",
+            "review": "Refined cameras, performance & strong ecosystem.",
+            "benefits": ["Best video", "Fast chip", "Long OS support"]
+        },
+        {
+            "name": "OnePlus 15",
+            "review": "Flagship performance + excellent fast charging.",
+            "benefits": ["Long battery life", "Great value", "Fast charging"]
+        },
+        {
+            "name": "iPhone 17",
+            "review": "Best all-rounder for most users.",
+            "benefits": ["Balanced performance", "Great camera"]
+        },
+        {
+            "name": "Google Pixel 10",
+            "review": "Strong camera + clean Android + AI features.",
+            "benefits": ["AI tools", "Affordable flagship"]
+        },
+        {
+            "name": "Nothing Phone 3a Pro",
+            "review": "Unique design & great value.",
+            "benefits": ["Glyph interface", "Clean UI"]
+        },
+        {
+            "name": "Samsung Galaxy Z Flip 7",
+            "review": "Most polished compact foldable.",
+            "benefits": ["Compact", "Improved hinge"]
+        },
+        {
+            "name": "Google Pixel 9a",
+            "review": "Best budget camera phone.",
+            "benefits": ["Value", "Clean software"]
+        },
+        {
+            "name": "OnePlus 15R",
+            "review": "Flagship-like features at lower price.",
+            "benefits": ["Great performance", "Fast charging"]
+        }
+    ],
+
+    # ---------------- LAPTOPS -------------------
+    "Laptops": [
+        {"name": "MacBook Pro (M-Series)", "review": "Best performance + battery life.", "benefits": ["Silent", "Efficient", "Great display"]},
+        {"name": "Dell XPS 15", "review": "Premium Windows laptop.", "benefits": ["Bezel-less design", "Strong performance"]},
+        {"name": "ASUS ROG Zephyrus G16", "review": "Best gaming ultrabook.", "benefits": ["Slim", "Great GPU"]},
+        {"name": "HP Spectre x360", "review": "Best 2-in-1 laptop.", "benefits": ["Premium build", "Touch display"]},
+        {"name": "Lenovo ThinkPad X1 Carbon", "review": "Best business laptop.", "benefits": ["Durable", "Great keyboard"]},
+        {"name": "MacBook Air (M-Series)", "review": "Best lightweight laptop.", "benefits": ["Super light", "Excellent battery"]},
+        {"name": "ASUS Zenbook 14 OLED", "review": "Excellent OLED screen + value.", "benefits": ["OLED", "Portable"]},
+        {"name": "Acer Swift Go", "review": "Great performance/value ratio.", "benefits": ["Affordable", "Fast"]},
+        {"name": "MSI Creator Z17", "review": "Best for creators.", "benefits": ["Powerful GPU", "Color-accurate"]},
+        {"name": "Samsung Galaxy Book 4 Pro", "review": "Great display + thin design.", "benefits": ["Thin", "Bright AMOLED"]},
+    ],
+
+    # ---------------- HEADPHONES -------------------
+    "Headphones": [
+        {"name": "Sony WH-1000XM6", "review": "Best ANC over-ear.", "benefits": ["Top noise canceling", "Comfort"]},
+        {"name": "Bose QuietComfort Ultra", "review": "Comfort king with natural sound.", "benefits": ["Lightweight", "Best comfort"]},
+        {"name": "Apple AirPods Max 2", "review": "Best for Apple users.", "benefits": ["Spatial audio", "Build quality"]},
+        {"name": "Sennheiser Momentum 5", "review": "Best sound quality.", "benefits": ["Rich sound", "Great build"]},
+        {"name": "Sony WF-1000XM6", "review": "Best noise-canceling earbuds.", "benefits": ["Great ANC", "Compact"]},
+        {"name": "AirPods Pro 3", "review": "Great ANC + iOS features.", "benefits": ["Spatial audio", "Comfort"]},
+        {"name": "Nothing Ear 3", "review": "Best design/value earbuds.", "benefits": ["Transparent design", "Good value"]},
+        {"name": "Bose QC Earbuds II", "review": "Outstanding ANC.", "benefits": ["Great isolation"]},
+        {"name": "Beats Studio Pro", "review": "Great for bass lovers.", "benefits": ["Punchy sound"]},
+        {"name": "JBL Tour One M2", "review": "Value ANC option.", "benefits": ["Good ANC", "Affordable"]},
+    ],
+
+    # ---------------- SMARTWATCHES -------------------
+    "Smartwatches": [
+        {"name": "Apple Watch Ultra 3", "review": "Best overall smartwatch.", "benefits": ["Rugged", "Best sensors"]},
+        {"name": "Apple Watch Series 10", "review": "Best mainstream option.", "benefits": ["Lightweight", "Accurate tracking"]},
+        {"name": "Galaxy Watch 7 Pro", "review": "Best Android smartwatch.", "benefits": ["Long battery", "Great display"]},
+        {"name": "Google Pixel Watch 3", "review": "Best Google AI watch.", "benefits": ["AI features", "Clean design"]},
+        {"name": "Amazfit GTR 5", "review": "Best budget smartwatch.", "benefits": ["Long battery", "Good fitness"]},
+        {"name": "Garmin Fenix 8", "review": "Best for athletes.", "benefits": ["Advanced metrics", "Rugged"]},
+        {"name": "Garmin Venu 3", "review": "Great fitness features.", "benefits": ["Training tools"]},
+        {"name": "Fitbit Versa 5", "review": "Affordable fitness tracker.", "benefits": ["Good tracking"]},
+        {"name": "Huawei Watch GT5", "review": "Long battery.", "benefits": ["Battery", "Premium build"]},
+        {"name": "Nothing Watch Pro", "review": "Stylish & affordable.", "benefits": ["Clean UI"]},
+    ],
+
+    # ---------------- CAMERAS -------------------
+    "Cameras": [
+        {"name": "Sony A7 IV", "review": "Best hybrid mirrorless.", "benefits": ["Great AF", "Image quality"]},
+        {"name": "Canon R6 Mark II", "review": "Excellent hybrid system.", "benefits": ["Fast AF", "Great video"]},
+        {"name": "Nikon Z6 III", "review": "Fantastic for hybrid shooting.", "benefits": ["Dynamic range"]},
+        {"name": "Sony A6700", "review": "Best APS-C camera.", "benefits": ["AF", "Compact"]},
+        {"name": "Fujifilm X-T5", "review": "Top APS-C for creators.", "benefits": ["Great colors"]},
+        {"name": "Panasonic GH6", "review": "Best for video creators.", "benefits": ["Video tools"]},
+        {"name": "Sony A1", "review": "Flagship all-rounder.", "benefits": ["8K", "Fast sensor"]},
+        {"name": "Canon R5", "review": "Great pro hybrid.", "benefits": ["High res", "AF"]},
+        {"name": "Sony ZV-E10 II", "review": "Best vlogging camera.", "benefits": ["Flip screen"]},
+        {"name": "Fujifilm GFX100 II", "review": "Best medium format.", "benefits": ["Insane detail"]},
+    ],
+
+    # ---------------- TABLETS -------------------
+    "Tablets": [
+        {"name": "iPad Pro M4", "review": "Best tablet overall.", "benefits": ["OLED", "Strongest chip"]},
+        {"name": "iPad Air M3", "review": "Best value iPad.", "benefits": ["Fast", "Affordable"]},
+        {"name": "Samsung Tab S10 Ultra", "review": "Best Android tablet.", "benefits": ["Huge AMOLED"]},
+        {"name": "Samsung Tab S10+", "review": "Great premium Android.", "benefits": ["OLED", "Stylus"]},
+        {"name": "Xiaomi Pad 7 Pro", "review": "Best midrange Android.", "benefits": ["Affordable"]},
+        {"name": "Lenovo Tab P13 Pro", "review": "Great for media.", "benefits": ["Great display"]},
+        {"name": "Amazon Fire Max 11", "review": "Budget media tablet.", "benefits": ["Cheap"]},
+        {"name": "iPad Mini 7", "review": "Portable powerhouse.", "benefits": ["Compact"]},
+        {"name": "Huawei MatePad Pro", "review": "Premium build.", "benefits": ["Stylus support"]},
+        {"name": "Realme Pad 2", "review": "Best budget tablet.", "benefits": ["Affordable"]},
+    ],
+
+    # ---------------- TVs -------------------
+    "TVs": [
+        {"name": "LG G4 OLED", "review": "Best overall OLED.", "benefits": ["Brightness", "Colors"]},
+        {"name": "Samsung S95D OLED", "review": "Best QD-OLED.", "benefits": ["Contrast", "Brightness"]},
+        {"name": "Sony A95L", "review": "Excellent picture quality.", "benefits": ["Colors", "Processing"]},
+        {"name": "TCL QM8", "review": "Best value Mini-LED.", "benefits": ["Brightness", "Price"]},
+        {"name": "Hisense U8K", "review": "Great value high-end TV.", "benefits": ["Mini-LED"]},
+        {"name": "Samsung QN90D", "review": "Premium Mini-LED option.", "benefits": ["Brightness"]},
+        {"name": "LG C4", "review": "Great OLED value.", "benefits": ["Contrast"]},
+        {"name": "Sony X90L", "review": "Strong mid-range TV.", "benefits": ["Motion handling"]},
+        {"name": "TCL Q7", "review": "Affordable 4K option.", "benefits": ["Value"]},
+        {"name": "Hisense U7N", "review": "Good gaming TV.", "benefits": ["Low latency"]},
+    ]
+}
+
+
+# ---------------------------------------------------
+# 🎨 UI Rendering
+# ---------------------------------------------------
+st.title("🔥 Top 10 Best Products — Live Prices + Reviews")
+st.markdown("Browse curated top picks with **live price comparison** from multiple retailers.")
+
+category = st.sidebar.selectbox("Select Category", list(catalogs.keys()))
+
+st.subheader(f"Top 10 – {category}")
+
+for idx, product in enumerate(catalogs[category], 1):
+    st.markdown(f"### **{idx}. {product['name']}**")
+    st.write(product["review"])
+    st.write("**Key Benefits:** " + ", ".join(product["benefits"]))
+
+    with st.expander("💰 Live Best Prices (via SerpAPI)"):
+        with st.spinner("Fetching best prices…"):
+            prices = fetch_best_prices(product["name"])
+
+        if prices:
+            for p in prices:
+                st.markdown(
+                    f"- **{p['source']}** — {p['price']} "
+                    f"[Buy]({p['link']})"
+                )
+        else:
+            st.info("No live prices found.")
+
+    st.markdown("---")
 
 # ---------------- Utilities & Caching ----------------
 @st.cache_data(ttl=120, show_spinner=False)
@@ -376,3 +597,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
